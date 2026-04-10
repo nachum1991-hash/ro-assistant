@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify
 import anthropic
 import requests
 import os
+import tempfile
 from datetime import datetime
+from openai import OpenAI
 
 app = Flask(__name__)
 
@@ -10,6 +12,7 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 WHATSAPP_TOKEN    = os.environ.get("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID   = os.environ.get("PHONE_NUMBER_ID")
 VERIFY_TOKEN      = os.environ.get("VERIFY_TOKEN", "ro_secret_123")
+OPENAI_API_KEY    = os.environ.get("OPENAI_API_KEY")
 
 # In-memory conversation history per user (upgradeable to DB later)
 conversations = {}
@@ -93,6 +96,60 @@ YOUR RULES:
 - Detect emotional state from message style: short clipped messages = possibly low; long paragraphs = processing mode; humor = good energy
 - Respond in whatever language he writes in - Hebrew or English
 - In group chats, you were tagged - respond naturally and briefly"""
+
+
+# ─────────────────────────────────────────────
+# TRANSCRIBE VOICE NOTE
+# ─────────────────────────────────────────────
+def transcribe_audio(media_id):
+    """Download audio from Meta and transcribe with OpenAI Whisper."""
+
+    # Step 1: Get the download URL from Meta
+    meta_url = f"https://graph.facebook.com/v19.0/{media_id}"
+    headers  = {"Authorization": f"Bearer {WHATSAPP_TOKEN}"}
+
+    try:
+        meta_resp = requests.get(meta_url, headers=headers, timeout=10)
+        meta_resp.raise_for_status()
+        download_url = meta_resp.json().get("url")
+        if not download_url:
+            print("No download URL from Meta")
+            return None
+    except requests.RequestException as e:
+        print(f"Meta media fetch error: {e}")
+        return None
+
+    # Step 2: Download the audio file
+    try:
+        audio_resp = requests.get(download_url, headers=headers, timeout=30)
+        audio_resp.raise_for_status()
+        audio_bytes = audio_resp.content
+    except requests.RequestException as e:
+        print(f"Audio download error: {e}")
+        return None
+
+    # Step 3: Transcribe with OpenAI Whisper
+    try:
+        oai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+        # Write to a temp file — Whisper needs a file-like object with a name
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+
+        with open(tmp_path, "rb") as audio_file:
+            transcript = oai_client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                language=None  # auto-detect Hebrew or English
+            )
+
+        os.unlink(tmp_path)
+        return transcript.text
+
+    except Exception as e:
+        print(f"Whisper transcription error: {e}")
+        return None
 
 
 # ─────────────────────────────────────────────
@@ -184,23 +241,37 @@ def webhook():
         from_num = message["from"]
         msg_type = message.get("type")
 
-        # Only handle text messages
-        if msg_type != "text":
+        is_group = "group_id" in value.get("metadata", {})
+
+        # ── TEXT MESSAGE ──
+        if msg_type == "text":
+            msg_text  = message["text"]["body"]
+            mentioned = "@ro" in msg_text.lower()
+
+            if is_group and not mentioned:
+                return jsonify({"status": "ok"})
+
+            clean_text = msg_text.replace("@Ro", "").replace("@ro", "").strip()
+            if not clean_text:
+                clean_text = "hey"
+
+        # ── VOICE NOTE ──
+        elif msg_type == "audio":
+            media_id = message["audio"]["id"]
+
+            # Let the user know we're processing (feels more alive)
+            send_whatsapp_message(from_num, "🎙 got it, one sec...")
+
+            clean_text = transcribe_audio(media_id)
+            if not clean_text:
+                send_whatsapp_message(from_num, "Couldn't make out the audio — try sending it again or type it out.")
+                return jsonify({"status": "ok"})
+
+            print(f"Voice transcription: {clean_text}")
+
+        # ── UNSUPPORTED TYPE ──
+        else:
             return jsonify({"status": "ok"})
-
-        msg_text = message["text"]["body"]
-
-        # Group chat: only respond when @Ro is mentioned
-        mentioned = "@ro" in msg_text.lower()
-        is_group  = "group_id" in value.get("metadata", {})
-
-        if is_group and not mentioned:
-            return jsonify({"status": "ok"})
-
-        # Strip @Ro mention before sending to Claude
-        clean_text = msg_text.replace("@Ro", "").replace("@ro", "").strip()
-        if not clean_text:
-            clean_text = "hey"
 
         reply = get_ro_response(from_num, clean_text)
         send_whatsapp_message(from_num, reply)
