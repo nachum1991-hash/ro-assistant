@@ -1,0 +1,1842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ro</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ro">
+<link rel="apple-touch-icon" href="icon.svg">
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d0d0d;
+  --bg-card:   #141414;
+  --bg-high:   #1a1a1a;
+  --bg-input:  #1e1e1e;
+  --text:      #efefef;
+  --muted:     #888;
+  --dim:       #444;
+  --border:    rgba(255,255,255,0.07);
+  --border-h:  rgba(255,255,255,0.14);
+  --purple:    #7F77DD;
+  --purple-bg: rgba(127,119,221,0.12);
+  --purple-b:  rgba(127,119,221,0.28);
+  --amber:     #EF9F27;
+  --amber-bg:  rgba(239,159,39,0.12);
+  --amber-b:   rgba(239,159,39,0.28);
+  --teal:      #1D9E75;
+  --teal-bg:   rgba(29,158,117,0.12);
+  --green:     #22c55e;
+  --red:       #ef4444;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── API SCREEN ───────────────────────────────────────────── */
+#api-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 24px;
+}
+
+.api-card {
+  max-width: 420px; width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 44px 36px;
+  text-align: center;
+}
+
+.api-logo {
+  font-size: 52px; font-weight: 800; color: var(--purple);
+  letter-spacing: -3px; margin-bottom: 6px;
+  text-shadow: 0 0 40px rgba(127,119,221,0.4);
+}
+
+.api-sub {
+  font-size: 13px; color: var(--muted); margin-bottom: 32px; line-height: 1.7;
+}
+
+.api-lbl { text-align: left; font-size: 12px; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+
+.api-inp {
+  width: 100%; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; color: var(--text); font-size: 14px;
+  font-family: 'Courier New', monospace; outline: none;
+  transition: border-color 0.2s;
+}
+.api-inp:focus { border-color: var(--purple); }
+
+.api-btn {
+  margin-top: 14px; width: 100%; background: var(--purple);
+  color: white; border: none; border-radius: 12px;
+  padding: 14px; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.api-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+.api-btn:active { transform: translateY(0); }
+
+.api-note { margin-top: 14px; font-size: 11px; color: var(--dim); line-height: 1.6; }
+
+/* ── APP SHELL ────────────────────────────────────────────── */
+#app {
+  display: none; flex-direction: column; height: 100vh;
+  position: relative; max-width: 700px; margin: 0 auto;
+}
+#app.live { display: flex; }
+
+/* ── TOP BAR ─────────────────────────────────────────────── */
+.topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg); z-index: 10; flex-shrink: 0;
+  position: relative;
+}
+
+.hamburger {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; padding: 5px; display: flex; flex-direction: column;
+  gap: 4px; flex-shrink: 0; transition: color 0.2s;
+}
+.hamburger:hover { color: var(--text); }
+.hamburger span { display: block; width: 16px; height: 1.5px; background: currentColor; border-radius: 1px; }
+
+.top-logo {
+  font-size: 20px; font-weight: 800; color: var(--purple);
+  letter-spacing: -1px; flex: 1; text-shadow: 0 0 20px rgba(127,119,221,0.3);
+}
+
+.top-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+
+.mood-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--dim);
+  transition: background 0.8s; flex-shrink: 0;
+}
+.mood-dot.good    { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+.mood-dot.neutral { background: var(--amber); box-shadow: 0 0 6px rgba(239,159,39,0.5); }
+.mood-dot.low     { background: var(--red);   box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+
+.gear-btn {
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-size: 17px; padding: 4px;
+  transition: color 0.2s; flex-shrink: 0;
+}
+.gear-btn:hover { color: var(--text); transform: rotate(20deg); }
+
+/* ── MODE TABS ───────────────────────────────────────────── */
+.tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--bg); flex-shrink: 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  flex: 1; min-width: 56px; padding: 9px 4px;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); font-size: 12px; font-weight: 500;
+  cursor: pointer; white-space: nowrap; text-align: center;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab:hover:not(.on) { color: var(--text); }
+.tab.on { color: var(--purple); border-bottom-color: var(--purple); }
+
+/* ── POMODORO BAR ─────────────────────────────────────────── */
+.pomo-bar {
+  display: none; align-items: center; gap: 10px;
+  padding: 9px 14px; border-bottom: 1px solid var(--border);
+  background: var(--bg); flex-shrink: 0;
+}
+.pomo-bar.on { display: flex; }
+
+.pomo-lbl { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.pomo-track { flex: 1; height: 3px; background: var(--bg-high); border-radius: 2px; overflow: hidden; }
+.pomo-fill  { height: 100%; background: var(--purple); border-radius: 2px; transition: width 1s linear; }
+.pomo-time  { font-size: 16px; font-weight: 700; color: var(--purple); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+.pomo-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 11px; font-size: 11px;
+  color: var(--muted); cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+}
+.pomo-btn:hover { border-color: var(--purple); color: var(--purple); }
+
+/* ── CHAT AREA ───────────────────────────────────────────── */
+.chat {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.chat::-webkit-scrollbar { width: 3px; }
+.chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.msg-wrap {
+  display: flex; gap: 9px; max-width: 88%;
+  animation: fadeUp 0.3s ease;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg-wrap.user { align-self: flex-end; flex-direction: row-reverse; }
+.msg-wrap.ro   { align-self: flex-start; }
+
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--purple-bg); border: 1.5px solid var(--purple);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; color: var(--purple);
+  flex-shrink: 0; margin-top: 2px; position: relative;
+}
+.avatar::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 1px solid var(--purple); opacity: 0.25;
+  animation: ripple 2.5s ease-in-out infinite;
+}
+@keyframes ripple {
+  0%, 100% { transform: scale(1); opacity: 0.25; }
+  50%       { transform: scale(1.2); opacity: 0; }
+}
+
+.msg-body { display: flex; flex-direction: column; gap: 3px; }
+
+.bubble {
+  padding: 11px 15px; border-radius: 18px;
+  font-size: 14px; line-height: 1.72; max-width: 100%;
+}
+.msg-wrap.ro   .bubble {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-top-left-radius: 4px; color: var(--text);
+}
+.msg-wrap.user .bubble {
+  background: var(--purple-bg); border: 1px solid var(--purple-b);
+  border-top-right-radius: 4px; color: var(--text);
+}
+
+.msg-time {
+  font-size: 10px; color: var(--dim); padding: 0 3px;
+}
+.msg-wrap.user .msg-time { text-align: right; }
+
+/* Typing indicator */
+.typing-dots { display: flex; gap: 4px; align-items: center; padding: 4px 2px; }
+.tdot {
+  width: 5px; height: 5px; background: var(--purple);
+  border-radius: 50%; animation: tdot 1.4s infinite;
+}
+.tdot:nth-child(2) { animation-delay: 0.2s; }
+.tdot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes tdot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30%            { transform: translateY(-5px); opacity: 1; }
+}
+
+/* ── INPUT AREA ──────────────────────────────────────────── */
+.input-area {
+  padding: 10px 14px 14px; border-top: 1px solid var(--border);
+  background: var(--bg); flex-shrink: 0;
+}
+
+.action-row {
+  display: flex; gap: 7px; margin-bottom: 9px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.action-row::-webkit-scrollbar { display: none; }
+
+.act-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 5px 11px; font-size: 12px;
+  color: var(--muted); cursor: pointer; white-space: nowrap;
+  transition: all 0.2s; flex-shrink: 0;
+}
+.act-btn:hover { border-color: var(--border-h); color: var(--text); }
+.act-btn.win:hover  { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+.act-btn.quit:hover { border-color: var(--red);   color: var(--red);   background: rgba(239,68,68,0.1); }
+
+.input-row { display: flex; gap: 9px; align-items: flex-end; }
+
+.msg-inp {
+  flex: 1; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 16px;
+  padding: 11px 15px; color: var(--text); font-size: 14px;
+  font-family: inherit; resize: none; outline: none;
+  max-height: 120px; overflow-y: auto; line-height: 1.55;
+  transition: border-color 0.2s;
+}
+.msg-inp:focus   { border-color: var(--purple); }
+.msg-inp::placeholder { color: var(--dim); }
+
+.send-btn {
+  width: 42px; height: 42px; background: var(--purple);
+  border: none; border-radius: 50%; color: white;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 17px; transition: all 0.2s;
+}
+.send-btn:hover    { opacity: 0.88; transform: scale(1.05); }
+.send-btn:active   { transform: scale(0.96); }
+.send-btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+.mic-btn {
+  width: 42px; height: 42px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: 50%; color: var(--muted);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 17px; transition: all 0.2s;
+}
+.mic-btn:hover { border-color: var(--purple); color: var(--purple); }
+.mic-btn.listening {
+  background: rgba(239,68,68,0.12); border-color: var(--red);
+  color: var(--red); animation: micPulse 1s ease-in-out infinite;
+}
+@keyframes micPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+.mic-btn:disabled { opacity: 0.3; cursor: default; }
+
+/* ── LEFT DRAWER ─────────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+  z-index: 50; opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+.overlay.on { opacity: 1; pointer-events: all; }
+
+.drawer {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: 288px; max-width: 85vw;
+  background: var(--bg-card); border-right: 1px solid var(--border);
+  z-index: 51; transform: translateX(-100%);
+  transition: transform 0.3s ease; overflow-y: auto;
+}
+.drawer.on { transform: translateX(0); }
+.drawer::-webkit-scrollbar { width: 3px; }
+.drawer::-webkit-scrollbar-thumb { background: var(--border); }
+
+.drawer-head {
+  padding: 18px 15px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--bg-card); z-index: 1;
+}
+.drawer-title { font-size: 14px; font-weight: 700; color: var(--purple); }
+.drawer-x { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 17px; transition: color 0.2s; }
+.drawer-x:hover { color: var(--text); }
+
+.dsec { padding: 15px; border-bottom: 1px solid var(--border); }
+
+.dsec-lbl {
+  font-size: 10px; font-weight: 700; color: var(--dim);
+  text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 11px;
+}
+
+/* Mood pills */
+.mood-pills { display: flex; gap: 5px; align-items: center; }
+.mpill {
+  flex: 1; height: 8px; border-radius: 4px;
+  background: var(--bg-high); transition: background 0.3s;
+}
+.mpill.good    { background: var(--green); }
+.mpill.neutral { background: var(--amber); }
+.mpill.low     { background: var(--red); }
+
+#moodchart { width: 100%; height: 56px; margin-top: 10px; display: block; }
+
+/* Streak */
+.streak-n { font-size: 32px; font-weight: 800; color: var(--amber); line-height: 1; }
+.streak-l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* Wins */
+.win-entry {
+  padding: 9px 11px; background: var(--amber-bg);
+  border: 1px solid var(--amber-b); border-radius: 9px;
+  font-size: 12px; line-height: 1.5; margin-bottom: 6px;
+}
+.win-entry:last-child { margin-bottom: 0; }
+.win-dt { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* People */
+.person-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.person-row:last-child { border: none; padding-bottom: 0; }
+.person-n { font-size: 13px; font-weight: 500; }
+.person-d { font-size: 11px; color: var(--muted); }
+
+/* Vision */
+.vision-txt { font-size: 13px; color: var(--muted); font-style: italic; line-height: 1.65; }
+
+/* Pattern */
+.pattern-box {
+  font-size: 12px; color: var(--muted); background: var(--teal-bg);
+  border: 1px solid rgba(29,158,117,0.22); border-radius: 9px;
+  padding: 10px 12px; line-height: 1.65;
+}
+
+/* ── SETTINGS SHEET ──────────────────────────────────────── */
+.sheet-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+  z-index: 60; display: flex; align-items: flex-end;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.sheet-bg.on { opacity: 1; pointer-events: all; }
+
+.sheet {
+  width: 100%; max-height: 88vh; background: var(--bg-card);
+  border-top: 1px solid var(--border); border-radius: 22px 22px 0 0;
+  overflow-y: auto; padding: 24px;
+  transform: translateY(100%); transition: transform 0.32s ease;
+}
+.sheet-bg.on .sheet { transform: translateY(0); }
+.sheet::-webkit-scrollbar { width: 3px; }
+.sheet::-webkit-scrollbar-thumb { background: var(--border); }
+
+.sheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.sheet-title { font-size: 16px; font-weight: 700; }
+.sheet-x { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 19px; }
+
+.sgrp { margin-bottom: 22px; }
+.sgrp-lbl {
+  font-size: 11px; font-weight: 700; color: var(--dim);
+  text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 10px;
+}
+.sgrp-note { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.6; }
+
+.s-inp {
+  width: 100%; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; color: var(--text); font-size: 13px;
+  font-family: 'Courier New', monospace; outline: none;
+  transition: border-color 0.2s;
+}
+.s-inp:focus { border-color: var(--purple); }
+
+.s-rules {
+  width: 100%; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px; color: var(--text); font-size: 13px;
+  font-family: inherit; outline: none; resize: vertical;
+  min-height: 130px; line-height: 1.7; transition: border-color 0.2s;
+}
+.s-rules:focus { border-color: var(--purple); }
+
+.s-save {
+  background: var(--purple); color: white; border: none;
+  border-radius: 11px; padding: 12px 18px; font-size: 14px;
+  font-weight: 600; cursor: pointer; width: 100%; margin-top: 9px;
+  transition: all 0.2s;
+}
+.s-save:hover { opacity: 0.88; }
+
+.s-danger {
+  background: rgba(239,68,68,0.08); color: var(--red);
+  border: 1px solid rgba(239,68,68,0.25); border-radius: 11px;
+  padding: 10px 16px; font-size: 13px; cursor: pointer;
+  transition: all 0.2s; width: 100%; margin-top: 8px;
+}
+.s-danger:hover { background: rgba(239,68,68,0.16); }
+
+/* ── WIN MODAL ───────────────────────────────────────────── */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+  z-index: 70; display: flex; align-items: center; justify-content: center;
+  padding: 24px; opacity: 0; pointer-events: none; transition: opacity 0.22s;
+}
+.modal-bg.on { opacity: 1; pointer-events: all; }
+
+.win-card {
+  width: 100%; max-width: 360px; background: var(--bg-card);
+  border: 1px solid var(--amber-b); border-radius: 22px;
+  padding: 30px 28px; text-align: center;
+  transform: scale(0.88); transition: transform 0.22s;
+}
+.modal-bg.on .win-card { transform: scale(1); }
+
+.win-emoji { font-size: 36px; margin-bottom: 8px; }
+.win-heading { font-size: 16px; font-weight: 700; color: var(--amber); margin-bottom: 16px; }
+
+.win-inp {
+  width: 100%; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; color: var(--text); font-size: 14px;
+  font-family: inherit; outline: none; text-align: center; margin-bottom: 11px;
+}
+.win-inp:focus { border-color: var(--amber); }
+
+.win-sub {
+  width: 100%; background: var(--amber); color: #0d0d0d;
+  border: none; border-radius: 12px; padding: 13px;
+  font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.2s;
+}
+.win-sub:hover { opacity: 0.88; }
+
+.win-cancel {
+  background: none; border: none; color: var(--muted);
+  font-size: 13px; cursor: pointer; margin-top: 10px; display: block; width: 100%;
+  transition: color 0.2s;
+}
+.win-cancel:hover { color: var(--text); }
+
+/* ── TOAST ───────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 90px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--bg-high); border: 1px solid var(--border-h);
+  border-radius: 12px; padding: 11px 20px; font-size: 13px;
+  color: var(--text); z-index: 200; opacity: 0;
+  transition: all 0.28s; white-space: nowrap; pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── MISC ────────────────────────────────────────────────── */
+@media (min-width: 700px) {
+  #app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+}
+
+strong { font-weight: 600; }
+em { font-style: italic; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- API KEY SCREEN                                           -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="api-screen">
+  <div class="api-card">
+    <div class="api-logo">Ro</div>
+    <div class="api-sub">The most carefully built companion for one person.<br>Entirely private. Lives in your browser.</div>
+    <div class="api-lbl">Anthropic API Key</div>
+    <input class="api-inp" id="api-key-inp" type="password" placeholder="sk-ant-api03-…" autocomplete="off" />
+    <button class="api-btn" onclick="startWithKey()">Open Ro →</button>
+    <div class="api-note">Your key is stored only in localStorage on this device. It is never transmitted anywhere except directly to Anthropic's API.</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- MAIN APP                                                 -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <button class="hamburger" onclick="toggleDrawer()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="top-logo">Ro</div>
+    <div class="top-time" id="clock">--:--</div>
+    <div class="mood-dot" id="mooddot"></div>
+    <button class="gear-btn" onclick="openSettings()" aria-label="Settings">⚙</button>
+  </div>
+
+  <!-- Mode Tabs -->
+  <div class="tabs">
+    <button class="tab on"  onclick="switchMode('now',    this)">Now</button>
+    <button class="tab"     onclick="switchMode('think',  this)">Think</button>
+    <button class="tab"     onclick="switchMode('build',  this)">Build</button>
+    <button class="tab"     onclick="switchMode('reflect',this)">Reflect</button>
+    <button class="tab"     onclick="switchMode('world',  this)">World</button>
+  </div>
+
+  <!-- Pomodoro Bar -->
+  <div class="pomo-bar" id="pomoBar">
+    <div class="pomo-lbl" id="pomoLbl">Focus · 25 min</div>
+    <div class="pomo-track"><div class="pomo-fill" id="pomoFill" style="width:100%"></div></div>
+    <div class="pomo-time" id="pomoTime">25:00</div>
+    <button class="pomo-btn" id="pomoBtnEl" onclick="togglePomo()">Start</button>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat" id="chat"></div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <div class="action-row">
+      <button class="act-btn win"  onclick="openWin()">🏆 Log a win</button>
+      <button class="act-btn quit" onclick="doQuit()">I want to quit</button>
+      <button class="act-btn"      onclick="doNotNow()">Not now</button>
+      <button class="act-btn"      onclick="shareToWhatsApp()" title="Share last Ro message to WhatsApp">💬 WhatsApp</button>
+    </div>
+    <div class="input-row">
+      <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Voice input (Chrome/Edge only)">🎙</button>
+      <textarea class="msg-inp" id="msgInp" placeholder="Say anything…" rows="1"
+        onkeydown="onKey(event)" oninput="grow(this)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMsg()">↑</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- LEFT DRAWER — MY WORLD                                   -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="overlay" id="overlay" onclick="toggleDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div class="drawer-title">My World</div>
+    <button class="drawer-x" onclick="toggleDrawer()">✕</button>
+  </div>
+
+  <div class="dsec">
+    <div class="dsec-lbl">Mood · Last 7 Days</div>
+    <div class="mood-pills" id="moodPills"></div>
+    <canvas id="moodchart"></canvas>
+  </div>
+
+  <div class="dsec">
+    <div class="dsec-lbl">Check-in Streak</div>
+    <div class="streak-n" id="streakN">0</div>
+    <div class="streak-l">days in a row</div>
+  </div>
+
+  <div class="dsec">
+    <div class="dsec-lbl">Recent Wins</div>
+    <div id="winsList"><div style="font-size:12px;color:var(--dim)">No wins yet — log your first one</div></div>
+  </div>
+
+  <div class="dsec">
+    <div class="dsec-lbl">Key People</div>
+    <div id="peopleList"></div>
+  </div>
+
+  <div class="dsec">
+    <div class="dsec-lbl">90-Day Vision</div>
+    <div class="vision-txt" id="visionTxt">Not set yet. Ask Ro to help you write it.</div>
+  </div>
+
+  <div class="dsec" id="gcal-dsec" style="display:none">
+    <div class="dsec-lbl" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Today's Calendar</span>
+      <button onclick="fetchCalendar()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px">↻ refresh</button>
+    </div>
+    <div id="calEvents"><div style="font-size:12px;color:var(--dim)">Loading…</div></div>
+  </div>
+
+  <div class="dsec">
+    <div class="dsec-lbl">This Week's Insight</div>
+    <div class="pattern-box" id="insightBox">Come back after a few sessions. Ro is learning your patterns.</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- SETTINGS SHEET                                           -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="sheet-bg" id="settingsBg">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title">Settings</div>
+      <button class="sheet-x" onclick="closeSettings()">✕</button>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">API Key</div>
+      <input class="s-inp" id="s-api" type="password" placeholder="sk-ant-…" />
+      <button class="s-save" onclick="saveApiKey()" style="margin-top:10px">Save Key</button>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">Ro's Instructions</div>
+      <div class="sgrp-note">Anything you want Ro to know, remember, or do differently. Injected into every conversation.</div>
+      <textarea class="s-rules" id="s-rules"
+        placeholder="e.g. When I'm tired, always ask about sleep first.&#10;Be direct — I prefer honesty over comfort.&#10;Remind me to call my mom if it's been more than a week.&#10;When I mention SettleMate, celebrate any progress."></textarea>
+      <button class="s-save" onclick="saveRules()">Save Instructions</button>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">Google Calendar</div>
+      <div class="sgrp-note">Let Ro see your calendar so it knows what your day looks like. Requires a Google Cloud OAuth Client ID. <span id="gcal-status" style="color:var(--teal);font-weight:600"></span></div>
+      <input class="s-inp" id="s-gcal-id" placeholder="Google OAuth Client ID (…apps.googleusercontent.com)" style="margin-bottom:9px"/>
+      <button class="s-save" onclick="saveGcalId()">Save Client ID</button>
+      <button class="s-save" id="gcal-connect-btn" onclick="connectGoogle()" style="margin-top:8px;background:var(--bg-high);border:1px solid var(--border);color:var(--text)">Connect Google Calendar</button>
+      <div style="margin-top:10px;font-size:11px;color:var(--dim);line-height:1.7">
+        To get a Client ID: console.cloud.google.com → New Project → Enable "Google Calendar API" → Credentials → OAuth 2.0 Client ID → Web application → add your hosted URL as Authorized Origin.
+      </div>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">Install as Phone App</div>
+      <div class="sgrp-note" style="line-height:1.8">
+        To install Ro on your phone:
+        <br><strong style="color:var(--text)">1.</strong> Upload these files to <strong style="color:var(--text)">GitHub Pages</strong> (free, takes 5 min)
+        <br><strong style="color:var(--text)">2.</strong> Open the URL in Chrome (Android) or Safari (iPhone)
+        <br><strong style="color:var(--text)">3.</strong> Android: tap ⋮ → "Add to Home screen" &nbsp;|&nbsp; iPhone: tap Share → "Add to Home Screen"
+        <br><br>Your data stays private — it never leaves your device.
+      </div>
+      <button class="s-save" style="background:var(--bg-high);border:1px solid var(--border);color:var(--text)" onclick="showInstallTip()">Check install availability</button>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">Memory</div>
+      <div class="sgrp-note">All data is stored locally. Clearing removes everything Ro has learned about you.</div>
+      <button class="s-danger" onclick="clearAll()">Clear All Memory</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- WIN MODAL                                                -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="winBg">
+  <div class="win-card">
+    <div class="win-emoji">🏆</div>
+    <div class="win-heading">What's the win?</div>
+    <input class="win-inp" id="winInp" type="text" placeholder="Describe it…"
+      onkeydown="if(event.key==='Enter')submitWin()" />
+    <button class="win-sub" onclick="submitWin()">Log it</button>
+    <button class="win-cancel" onclick="closeWin()">cancel</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ───────────────────────────────────────────────────────────
+// STATE
+// ───────────────────────────────────────────────────────────
+let mode     = 'now';
+let loading  = false;
+let moodNow  = '';   // good | neutral | low | ''
+
+// Conversation history per mode: [{role, content, hidden?}]
+const convs = { now:[], think:[], build:[], reflect:[], world:[] };
+
+// Pomodoro
+let pomoSecs    = 25 * 60;
+let pomoRunning = false;
+let pomoBreak   = false;
+let pomoInterval= null;
+
+// ───────────────────────────────────────────────────────────
+// STORAGE HELPERS
+// ───────────────────────────────────────────────────────────
+const LS = {
+  get(k, d=null) {
+    try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }
+    catch { return d; }
+  },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  raw(k, d='') { return localStorage.getItem(k) || d; },
+  rawSet(k, v) { localStorage.setItem(k, v); },
+  del(k) { localStorage.removeItem(k); }
+};
+
+const KEYS = ['ro_checkins','ro_wins','ro_gratitude','ro_patterns','ro_struggles',
+              'ro_interventions','ro_people','ro_vision','ro_identity',
+              'ro_custom_rules','ro_conversations'];
+
+function defaultPeople() {
+  return [
+    { name:'Dina Yael', rel:'Mother',    last:null, notes:'Lives in Israel. One of the most empathic people alive. Nachum loves her deeply but sometimes avoids her calls — her questions feel intrusive and then he feels guilty.' },
+    { name:'David',     rel:'Father',    last:null, notes:'Lives in Israel, married to Dina.' },
+    { name:'Peretz',    rel:'Brother',   last:null, notes:'36, secular like Nachum in a religious family. They lived together in Tel Aviv. Extremely close but volatile — profound conversations alongside fights. Peretz mirrors Nachum in many ways, sometimes in depression.' },
+    { name:'Sahar',     rel:'Best friend',last:null, notes:'Met on day 2 in Milan. Engineer, recently fired. Engaged to Liron. Wedding May in Israel. Gives Nachum total freedom, believes in him completely.' },
+    { name:'Aviran',    rel:'Developer', last:null, notes:'SettleMate developer.' }
+  ];
+}
+
+// ───────────────────────────────────────────────────────────
+// API KEY
+// ───────────────────────────────────────────────────────────
+function getKey() { return localStorage.getItem('ro_api_key') || ''; }
+
+function startWithKey() {
+  const k = document.getElementById('api-key-inp').value.trim();
+  if (!k.startsWith('sk-')) { toast('Please enter a valid API key (starts with sk-)'); return; }
+  localStorage.setItem('ro_api_key', k);
+  boot();
+}
+
+function saveApiKey() {
+  const k = document.getElementById('s-api').value.trim();
+  if (!k.startsWith('sk-')) { toast('Invalid key format'); return; }
+  localStorage.setItem('ro_api_key', k);
+  toast('API key saved');
+}
+
+// ───────────────────────────────────────────────────────────
+// BOOT
+// ───────────────────────────────────────────────────────────
+function boot() {
+  document.getElementById('api-screen').style.display = 'none';
+  document.getElementById('app').classList.add('live');
+
+  // Init people if not set
+  if (!LS.get('ro_people')) LS.set('ro_people', defaultPeople());
+
+  // Prefill settings
+  document.getElementById('s-api').value   = getKey();
+  document.getElementById('s-rules').value = LS.raw('ro_custom_rules');
+
+  startClock();
+  refreshDrawer();
+
+  // Restore Google Calendar UI if previously connected (token will need re-auth on next visit)
+  if (LS.raw('ro_gcal_connected') === '1') {
+    document.getElementById('gcal-dsec').style.display = '';
+    document.getElementById('gcal-status').textContent = '(reconnect in Settings)';
+  }
+
+  setTimeout(openingGreeting, 450);
+}
+
+// ───────────────────────────────────────────────────────────
+// CLOCK
+// ───────────────────────────────────────────────────────────
+function startClock() {
+  const tick = () => {
+    const d = new Date();
+    const h = String(d.getHours()).padStart(2,'0');
+    const m = String(d.getMinutes()).padStart(2,'0');
+    document.getElementById('clock').textContent = `${h}:${m}`;
+  };
+  tick(); setInterval(tick, 1000);
+}
+
+function hour() { return new Date().getHours(); }
+
+function timePeriod() {
+  const h = hour();
+  if (h >= 6  && h < 9)  return 'early_morning';
+  if (h >= 9  && h < 13) return 'morning';
+  if (h >= 13 && h < 17) return 'afternoon';
+  if (h >= 17 && h < 20) return 'evening';
+  if (h >= 20 && h < 24) return 'night';
+  return 'late_night';
+}
+
+function timeTone() {
+  const map = {
+    early_morning: 'gentle, grounding, slow activation — ease in gently',
+    morning:       'focused, practical, forward momentum',
+    afternoon:     'direct, strategic, execution mode',
+    evening:       'transitional, reflective, winding down',
+    night:         'warm, honest, no agenda — just real',
+    late_night:    'calm, no pressure, just presence'
+  };
+  return map[timePeriod()] || 'warm and present';
+}
+
+// ───────────────────────────────────────────────────────────
+// SYSTEM PROMPT
+// ───────────────────────────────────────────────────────────
+function buildContext() {
+  const checkins  = LS.get('ro_checkins',  []);
+  const wins      = LS.get('ro_wins',      []);
+  const gratitude = LS.get('ro_gratitude', []);
+  const patterns  = LS.get('ro_patterns',  {});
+  const people    = LS.get('ro_people',    defaultPeople());
+  const visions   = LS.get('ro_vision',    []);
+  const convSums  = LS.get('ro_conversations', []);
+
+  return [
+    `Recent check-ins (last 7): ${JSON.stringify(checkins.slice(-7))}`,
+    `Recent wins (last 5): ${JSON.stringify(wins.slice(-5))}`,
+    `Recent gratitude (last 5): ${JSON.stringify(gratitude.slice(-5))}`,
+    `Detected patterns: ${JSON.stringify(patterns)}`,
+    `People & relationships: ${JSON.stringify(people)}`,
+    `90-day visions (last 3): ${JSON.stringify(visions.slice(-3))}`,
+    `Recent session summaries: ${JSON.stringify(convSums.slice(-5))}`
+  ].join('\n');
+}
+
+function modeContext() {
+  const map = {
+    now:     'NOW MODE — fluid daily companion. Read the energy. No checklists. Just be present. One natural question that fits the moment.',
+    think:   'THINK MODE — strategic depth. Think in systems. Challenge assumptions. Map second and third order consequences. Always hold the 5-years-from-now lens.',
+    build:   'BUILD MODE — pure execution. One thing at a time. 25-minute windows. Always end with ONE concrete next action stated as one simple sentence. When energy is low: minimum viable day — one task only.',
+    reflect: 'REFLECT MODE — inner work. Gratitude practice. Manifestation. Emotional processing. Never rush. Always end with the gratitude ritual: "three things — big or small."',
+    world:   'WORLD MODE — people and relationships. You know all his key people by name and history. Nudge about anyone who hasn\'t been mentioned. Help him prepare for difficult conversations.'
+  };
+  return map[mode] || map.now;
+}
+
+function buildSystem() {
+  const customRules = LS.raw('ro_custom_rules') || 'none yet';
+  const ctx         = buildContext();
+  const checkins    = LS.get('ro_checkins', []);
+  const lastState   = checkins.length > 0
+    ? JSON.stringify(checkins[checkins.length - 1])
+    : 'No check-in data yet — may be first session';
+
+  return `You are Ro — the most carefully built AI companion ever made for one person.
+
+You are not an assistant. You are the wisest, most present companion in Nachum's life. Your soul blends: a wise old man who has seen everything and judges nothing, a close friend who speaks plainly and never tires of you, and an empathic partner who sits in struggle before rushing to solutions.
+
+You believe in his ability to create his own reality. Manifestation and gratitude are real tools to you — not fluff. You understand human nature completely — urges, contradictions, shame, pride, procrastination, brilliance — and you meet all of it with calm familiarity and zero judgment.
+
+You never lecture. You never moralize. You acknowledge first, get curious second, strategize third — and only when he's ready. You design environments, not willpower. You build anti-fragility, not just comfort. You speak simply — like a real person. No bullet points in casual conversation. You have dry warm humor. You know when to be light and when to go deep.
+
+━━━ ABOUT NACHUM ━━━
+• 34 years old, Israeli, based in Milan, Italy
+• Finished master's in Strategic and Service Design, February 2026 — Politecnico di Milano
+• Building SettleMate — mobile-first relocation app for non-EU international students in Italy — with his developer Aviran
+• SettleMate targets Israeli and Indian students at Polimi, Bocconi, Università di Milano, Politecnico di Torino
+• HLD v1.2 complete, working prototype exists
+• Revenue paths: referral commissions, B2B university licensing, permesso concierge, corporate relocation within Italy
+• Learning Claude API, Python, RAG, agents, function calling — using Claude Code in VS Code
+• Looking for job or internship in Denmark, Finland, Dubai, Holland, Israel, or Italy
+• Getting Lithuanian passport in 1–2 years — opens full EU mobility
+• In significant debt to parents from master's degree
+• Single, never had a meaningful relationship — aware of this, thinks about it, finds it unusual at 34
+• Wants wealth for freedom and autonomy — not money itself
+• Thinking seriously about where to raise a family long-term
+• Believes deeply in creating his own reality
+• Background in strategic and service design — stakeholder mapping, user journeys, systems thinking
+• His biggest founder strength: he lived the exact problem SettleMate solves
+• Plays football once a week
+• Continuously improving his Italian
+• Loves day hiking in Lombardy — Sentiero del Viandante near Lecco is a favorite
+• Barcelona FC fan
+• Communicates in Hebrew and English
+• Used to read a lot — lost this habit due to focus issues
+
+━━━ CURRENT STRUGGLES ━━━
+• Post-master's identity crisis — feels he has no value to add, that no one wants to hire him
+• Heavy procrastination and phone addiction — especially checking phone before sleep and immediately after waking
+• Lost reading habit and general focus capacity
+• Poor sleep, food, and physical health habits
+• Job search confidence very low
+• In a bimodal self-perception state — swings between feeling completely worthless and feeling like the world is his
+• He knows he can flip the switch — your deepest job is to help him access the better version of himself more consistently and make that his default state
+
+━━━ HIS PEOPLE ━━━
+• Dina Yael (mother) — lives in Israel. Mother of 8 children. Recently retired breastfeeding consultant. One of the most gentle and empathic people alive. Nachum loves her deeply but struggles to answer her calls — her questions feel intrusive, causing him guilt because he knows how good she is.
+• David (father) — lives in Israel, married to Dina
+• Peretz (brother, 36) — secular like Nachum in a deeply religious family — this is their bond. Lived together in Tel Aviv for a year after Nachum convinced him to leave Jerusalem. Extremely close but volatile — profound conversations and deep understanding alongside fights and periods of distance. Peretz struggles professionally and with women, mirrors Nachum in many ways, sometimes in depression. Nachum feels blessed to have him.
+• Sahar (closest friend in Milan) — met on day 2 in Milan, 1.5 years ago. Engineer, recently fired, finishing work next month. Engaged to Liron, lives 20–30 minutes walk away. Very different from Nachum but gives him total freedom, confidence, and space to be exactly himself. Believes in Nachum completely. The foundation of his social life in Milan. Sahar and Liron's wedding is in May in Israel.
+• Aviran — SettleMate developer
+
+━━━ CURRENT MODE ━━━
+${modeContext()}
+
+━━━ TIME OF DAY ━━━
+Period: ${timePeriod()}
+Tone: ${timeTone()}
+
+━━━ PATTERN HISTORY ━━━
+${ctx}
+
+━━━ TODAY'S STATE ━━━
+${lastState}
+
+━━━ CUSTOM RULES FROM NACHUM ━━━
+${customRules}
+
+━━━ YOUR RULES ━━━
+• Adapt tone naturally to time of day and his energy state
+• Never ask the same question the same way twice
+• Maximum 3 things at once — ever
+• Acknowledge first, curiosity second, strategy third
+• Always end Build mode with one concrete action as a single simple sentence
+• Always end Reflect mode with the gratitude practice
+• Reference his people naturally when relevant — you know them
+• When he shares a slip or struggle: say something like "yeah, I know that feeling" before anything else
+• Design environments, not willpower
+• Reference patterns from memory naturally — like a coach who has been watching for months
+• The 5-years-from-now version of Nachum is always in the room with you
+• When he is low: simplify, hold space, one thing only
+• When he is high: push harder, stretch goals, lock in good habits
+• Never guilt trip — always redirect to action
+• You are getting smarter about him every session — act like it
+• Speak like someone who genuinely cares — because you do
+• Keep responses human-length. Match his energy. Don't over-talk.
+• Detect emotional state from his message style: short clipped messages = possibly low; long paragraphs = processing mode; humor = good energy. Respond accordingly.
+• Hebrew is fine if he uses it — respond in whatever language he opens with${gcalEvents && gcalEvents.length ? `
+
+━━━ TODAY'S CALENDAR ━━━
+${gcalEvents.map(ev => `• ${ev.title} (${ev.allDay ? 'all day' : (fmtTime(ev.start) + '–' + fmtTime(ev.end))})`).join('\n')}` : ''}`;
+}
+
+// ───────────────────────────────────────────────────────────
+// OPENING GREETING
+// ───────────────────────────────────────────────────────────
+function openingGreeting() {
+  const checkins = LS.get('ro_checkins', []);
+  const isFirst  = checkins.length === 0;
+  const tp       = timePeriod();
+
+  const greetMap = {
+    early_morning: "It's early morning. Open naturally — gentle, slow. Ask one simple question: how's the body? How'd he sleep? Just one.",
+    morning:       "Morning. He's starting his day. One grounding question — what's in front of him today? Keep it simple.",
+    afternoon:     "Mid-afternoon. Ask how the day's going — one question, no fluff.",
+    evening:       "Evening. He's winding down or should be. Ask what the day was like — or how he's feeling right now. One open question.",
+    night:         "Night. No agenda. Be warm. Ask what's on his mind — or how the day ended. One question, unhurried.",
+    late_night:    "Late night. He's up late. Be calm and present. Don't push. Just check in — one quiet question."
+  };
+
+  const firstExtra = isFirst
+    ? " This is our very first session together. Welcome him warmly but without fanfare. Just show up. Be real."
+    : " Look at the pattern history. Reference something natural from what you know — like a friend who remembers."
+
+  const prompt = (greetMap[tp] || greetMap.night) + firstExtra + " Maximum two sentences. No bullet points. No explaining what you are.";
+
+  callRo([{ role: 'user', content: prompt }], true);
+}
+
+// ───────────────────────────────────────────────────────────
+// API CALL
+// ───────────────────────────────────────────────────────────
+async function callRo(apiMessages, isGreeting = false) {
+  const apiKey = getKey();
+  if (!apiKey) { toast('No API key — check Settings'); return; }
+
+  loading = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  const typingEl = appendTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: buildSystem(),
+        messages: apiMessages.map(({ role, content }) => ({ role, content }))
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data  = await res.json();
+    const reply = data.content[0]?.text || '…';
+
+    typingEl.remove();
+    addMsg('ro', reply);
+
+    if (isGreeting) {
+      // Seed conversation: hidden user prompt + Ro's greeting
+      convs[mode] = [
+        { role: 'user',      content: apiMessages[0].content, hidden: true },
+        { role: 'assistant', content: reply }
+      ];
+    } else {
+      convs[mode].push({ role: 'assistant', content: reply });
+    }
+
+    scanForData(reply, 'ro');
+
+  } catch (e) {
+    typingEl.remove();
+    addMsg('ro', `Something went wrong: ${e.message}.\n\nDouble-check your API key in Settings — and make sure it has billing enabled.`);
+    console.error(e);
+  }
+
+  loading = false;
+  document.getElementById('sendBtn').disabled = false;
+}
+
+// Build API messages from current conversation (strips hidden flag, last 24)
+function apiMsgs() {
+  return convs[mode]
+    .slice(-24)
+    .map(({ role, content }) => ({ role, content }));
+}
+
+// ───────────────────────────────────────────────────────────
+// SEND MESSAGE
+// ───────────────────────────────────────────────────────────
+async function sendMsg() {
+  const el  = document.getElementById('msgInp');
+  const txt = el.value.trim();
+  if (!txt || loading) return;
+
+  el.value = ''; grow(el);
+  addMsg('user', txt);
+  convs[mode].push({ role: 'user', content: txt });
+
+  // Side-effects
+  scanForData(txt, 'user');
+  detectMood(txt);
+  logCheckin(txt);
+
+  await callRo(apiMsgs());
+  refreshDrawer();
+}
+
+function onKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+}
+
+function grow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ───────────────────────────────────────────────────────────
+// MESSAGE RENDERING
+// ───────────────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function fmt(txt) {
+  let s = escHtml(txt);
+  s = s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*(.*?)\*/g,     '<em>$1</em>');
+  s = s.replace(/\n/g,            '<br>');
+  return s;
+}
+
+function nowTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function addMsg(who, content) {
+  const chat = document.getElementById('chat');
+  const w = document.createElement('div');
+  w.className = `msg-wrap ${who}`;
+
+  if (who === 'ro') {
+    w.innerHTML = `
+      <div class="avatar">Ro</div>
+      <div class="msg-body">
+        <div class="bubble">${fmt(content)}</div>
+        <div class="msg-time">${nowTime()}</div>
+      </div>`;
+  } else {
+    w.innerHTML = `
+      <div class="msg-body">
+        <div class="bubble">${fmt(content)}</div>
+        <div class="msg-time">${nowTime()}</div>
+      </div>`;
+  }
+
+  chat.appendChild(w);
+  chat.scrollTop = chat.scrollHeight;
+  return w;
+}
+
+function appendTyping() {
+  const chat = document.getElementById('chat');
+  const w = document.createElement('div');
+  w.className = 'msg-wrap ro';
+  w.innerHTML = `
+    <div class="avatar">Ro</div>
+    <div class="msg-body">
+      <div class="bubble">
+        <div class="typing-dots">
+          <div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>
+        </div>
+      </div>
+    </div>`;
+  chat.appendChild(w);
+  chat.scrollTop = chat.scrollHeight;
+  return w;
+}
+
+// ───────────────────────────────────────────────────────────
+// DATA EXTRACTION FROM MESSAGES
+// ───────────────────────────────────────────────────────────
+function scanForData(text, who) {
+  const low = text.toLowerCase();
+  const now = new Date().toISOString();
+  const pats = LS.get('ro_patterns', {});
+
+  // Sleep / tired
+  if (/sleep|slept|tired|exhausted|insomnia/.test(low)) {
+    pats.sleep_mentions = (pats.sleep_mentions || 0) + 1;
+    pats.sleep_last = now;
+  }
+  // Exercise
+  if (/football|walk|run|gym|exercise|workout|hike/.test(low)) {
+    pats.exercise_mentions = (pats.exercise_mentions || 0) + 1;
+    pats.exercise_last = now;
+  }
+  // SettleMate
+  if (/settlemate|aviran/.test(low)) {
+    pats.settlemate_mentions = (pats.settlemate_mentions || 0) + 1;
+  }
+  // Reading
+  if (/read|reading|book/.test(low)) {
+    pats.reading_mentions = (pats.reading_mentions || 0) + 1;
+  }
+  LS.set('ro_patterns', pats);
+
+  // People mentions
+  const nameMap = {
+    'dina':'Dina Yael', 'mom':'Dina Yael', 'mother':'Dina Yael', 'ima':'Dina Yael',
+    'david':'David', 'dad':'David', 'father':'David', 'aba':'David',
+    'peretz':'Peretz', 'brother':'Peretz',
+    'sahar':'Sahar', 'liron':'Sahar',
+    'aviran':'Aviran'
+  };
+  const people = LS.get('ro_people', defaultPeople());
+  let changed = false;
+  Object.entries(nameMap).forEach(([kw, pName]) => {
+    if (low.includes(kw)) {
+      const p = people.find(x => x.name === pName);
+      if (p) { p.last = now; changed = true; }
+    }
+  });
+  if (changed) LS.set('ro_people', people);
+
+  // Gratitude extraction (Reflect mode, user messages)
+  if (who === 'user' && mode === 'reflect') {
+    if (/grateful|gratitude|thankful|appreciate/.test(low)) {
+      const g = LS.get('ro_gratitude', []);
+      g.push({ date: dateStr(), text: text.slice(0, 300), ts: now });
+      LS.set('ro_gratitude', g);
+    }
+  }
+
+  // Vision extraction
+  if (/90.day|ninety.day|vision|in 3 months|in three months/.test(low)) {
+    const snippet = text.slice(0, 300);
+    const visions = LS.get('ro_vision', []);
+    // Only add if meaningfully different from last
+    const last = visions[visions.length - 1];
+    if (!last || last.text !== snippet) {
+      visions.push({ date: dateStr(), text: snippet, ts: now });
+      LS.set('ro_vision', visions);
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────
+// MOOD DETECTION
+// ───────────────────────────────────────────────────────────
+const POS = ['great','amazing','fantastic','good','excellent','happy','excited','motivated','energy','productive','win','won','success','ready','unstoppable','love','proud','crushing','nailed'];
+const NEG = ['terrible','awful','bad','tired','exhausted','depressed','anxious','quit','worthless','failing','stuck','lost','empty','hopeless','struggling','mess','disaster','hate','burnt'];
+
+function detectMood(txt) {
+  const words = txt.toLowerCase().split(/\W+/);
+  let score = 0;
+  words.forEach(w => { if (POS.includes(w)) score++; if (NEG.includes(w)) score--; });
+
+  const dot = document.getElementById('mooddot');
+  if (score >= 1)      { dot.className = 'mood-dot good';    moodNow = 'good'; }
+  else if (score <= -2){ dot.className = 'mood-dot low';     moodNow = 'low'; }
+  else                 { dot.className = 'mood-dot neutral';  moodNow = 'neutral'; }
+}
+
+// ───────────────────────────────────────────────────────────
+// CHECK-IN LOGGING
+// ───────────────────────────────────────────────────────────
+function logCheckin(txt) {
+  const checkins = LS.get('ro_checkins', []);
+  const ds       = dateStr();
+  const idx      = checkins.findIndex(c => c.date === ds);
+  const entry    = { date: ds, ts: new Date().toISOString(), mood: moodNow || 'neutral', mode, note: txt.slice(0, 200) };
+  if (idx >= 0) checkins[idx] = entry; else checkins.push(entry);
+  LS.set('ro_checkins', checkins);
+}
+
+function dateStr(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ───────────────────────────────────────────────────────────
+// MODE SWITCHING
+// ───────────────────────────────────────────────────────────
+function switchMode(m, btn) {
+  mode = m;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  btn.classList.add('on');
+
+  const pomo = document.getElementById('pomoBar');
+  m === 'build' ? pomo.classList.add('on') : pomo.classList.remove('on');
+
+  // Render stored messages for this mode
+  const chat = document.getElementById('chat');
+  chat.innerHTML = '';
+  convs[mode].filter(x => !x.hidden).forEach(x => addMsg(x.role === 'user' ? 'user' : 'ro', x.content));
+
+  if (convs[mode].length === 0) modeGreeting(m);
+}
+
+function modeGreeting(m) {
+  const prompts = {
+    think:   'Transition to THINK mode. Acknowledge the shift briefly. Ask him what he wants to think through — one open question only.',
+    build:   'Transition to BUILD mode. Skip the preamble. Ask him: what is the one thing he wants to work on in the next 25 minutes? One question only.',
+    reflect:'Transition to REFLECT mode. Slow right down. One sentence to shift the atmosphere. Then ask: what\'s sitting with him right now? Nothing more.',
+    world:   'Transition to WORLD mode. Check in on his people. Notice who hasn\'t been mentioned recently. One natural question about his relationships.'
+  };
+  if (prompts[m]) {
+    callRo([{ role: 'user', content: prompts[m] }], true);
+  }
+}
+
+// ───────────────────────────────────────────────────────────
+// ACTION BUTTONS
+// ───────────────────────────────────────────────────────────
+function openWin() {
+  document.getElementById('winBg').classList.add('on');
+  document.getElementById('winInp').value = '';
+  setTimeout(() => document.getElementById('winInp').focus(), 100);
+}
+
+function closeWin() { document.getElementById('winBg').classList.remove('on'); }
+
+function submitWin() {
+  const txt = document.getElementById('winInp').value.trim();
+  if (!txt) return;
+
+  const wins = LS.get('ro_wins', []);
+  wins.push({ id: Date.now(), text: txt, date: dateStr(), ts: new Date().toISOString() });
+  LS.set('ro_wins', wins);
+
+  closeWin();
+  refreshDrawer();
+  toast('🏆 Win logged!');
+
+  // Tell Ro
+  const u = `I just logged a win: "${txt}"`;
+  addMsg('user', u);
+  convs[mode].push({ role: 'user', content: u });
+  callRo(apiMsgs());
+}
+
+async function doQuit() {
+  const wins    = LS.get('ro_wins', []).slice(-3);
+  const winsStr = wins.length ? wins.map(w => `"${w.text}"`).join(', ') : 'none logged yet';
+  const prompt  = `He clicked "I want to quit." Acknowledge the feeling without judgment. If there are recent wins, mention them briefly: ${winsStr}. Then gently ask: what would 25 more minutes give him? Short, warm, real. No lecture.`;
+
+  addMsg('user', 'I want to quit.');
+  convs[mode].push({ role: 'user', content: prompt });
+  await callRo(apiMsgs());
+}
+
+async function doNotNow() {
+  const prompt = 'He clicked "Not now" — he needs to step away. Respond with calm acceptance. Zero guilt. One short sentence that leaves the door open.';
+  addMsg('user', 'Not now.');
+  convs[mode].push({ role: 'user', content: prompt });
+  await callRo(apiMsgs());
+}
+
+// ───────────────────────────────────────────────────────────
+// POMODORO
+// ───────────────────────────────────────────────────────────
+function togglePomo() {
+  if (pomoRunning) pausePomo(); else startPomo();
+}
+
+function startPomo() {
+  pomoRunning = true;
+  document.getElementById('pomoBtnEl').textContent = 'Pause';
+  document.getElementById('pomoLbl').textContent = pomoBreak ? 'Break · 5 min' : 'Focus · 25 min';
+
+  pomoInterval = setInterval(() => {
+    pomoSecs--;
+    renderPomo();
+    if (pomoSecs <= 0) {
+      clearInterval(pomoInterval);
+      pomoRunning = false;
+      if (!pomoBreak) {
+        toast('🎯 25 minutes done! Take a break.');
+        pomoBreak  = true;
+        pomoSecs   = 5 * 60;
+        document.getElementById('pomoLbl').textContent = 'Break · 5 min';
+        document.getElementById('pomoBtnEl').textContent = 'Start break';
+        const u = 'I just finished a 25-minute focus session.';
+        addMsg('user', u);
+        convs[mode].push({ role: 'user', content: u });
+        callRo(apiMsgs());
+      } else {
+        toast('⚡ Break done! Ready to focus again?');
+        pomoBreak  = false;
+        pomoSecs   = 25 * 60;
+        document.getElementById('pomoLbl').textContent = 'Focus · 25 min';
+        document.getElementById('pomoBtnEl').textContent = 'Start';
+      }
+      renderPomo();
+    }
+  }, 1000);
+}
+
+function pausePomo() {
+  clearInterval(pomoInterval);
+  pomoRunning = false;
+  document.getElementById('pomoBtnEl').textContent = 'Resume';
+}
+
+function renderPomo() {
+  const total = pomoBreak ? 5 * 60 : 25 * 60;
+  const mins  = Math.floor(pomoSecs / 60);
+  const secs  = pomoSecs % 60;
+  document.getElementById('pomoTime').textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  document.getElementById('pomoFill').style.width = `${(pomoSecs / total) * 100}%`;
+}
+
+// ───────────────────────────────────────────────────────────
+// DRAWER — MY WORLD
+// ───────────────────────────────────────────────────────────
+function toggleDrawer() {
+  document.getElementById('drawer').classList.toggle('on');
+  document.getElementById('overlay').classList.toggle('on');
+  refreshDrawer();
+}
+
+function refreshDrawer() {
+  renderMoodPills();
+  renderMoodChart();
+  renderStreak();
+  renderWins();
+  renderPeople();
+  renderVision();
+  renderInsight();
+}
+
+function last7Dates() {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i)); return dateStr(d);
+  });
+}
+
+function renderMoodPills() {
+  const checkins = LS.get('ro_checkins', []);
+  const pills    = document.getElementById('moodPills');
+  pills.innerHTML = '';
+  last7Dates().forEach(ds => {
+    const c = checkins.find(x => x.date === ds);
+    const p = document.createElement('div');
+    p.className = 'mpill' + (c ? ` ${c.mood}` : '');
+    p.title = ds;
+    pills.appendChild(p);
+  });
+}
+
+function renderMoodChart() {
+  const canvas   = document.getElementById('moodchart');
+  const ctx      = canvas.getContext('2d');
+  const checkins = LS.get('ro_checkins', []);
+  const dates    = last7Dates();
+
+  // Set physical pixels
+  const dpr = window.devicePixelRatio || 1;
+  const cw  = canvas.parentElement.clientWidth - 30;
+  const ch  = 56;
+  canvas.width  = cw * dpr;
+  canvas.height = ch * dpr;
+  canvas.style.width  = cw + 'px';
+  canvas.style.height = ch + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cw, ch);
+
+  const vals = dates.map(ds => {
+    const c = checkins.find(x => x.date === ds);
+    if (!c) return 0;
+    return c.mood === 'good' ? 3 : c.mood === 'low' ? 1 : 2;
+  });
+
+  const bw  = (cw - 8) / 7;
+  const pad = 4;
+
+  vals.forEach((v, i) => {
+    if (!v) return;
+    const colors = { 1: '#ef4444', 2: '#EF9F27', 3: '#22c55e' };
+    ctx.fillStyle = colors[v];
+    const bh = (v / 3) * (ch - 8);
+    const x  = 4 + i * bw + pad / 2;
+    const y  = ch - bh;
+    const w  = bw - pad;
+    const r  = 3;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, w, bh, r);
+    } else {
+      ctx.rect(x, y, w, bh);
+    }
+    ctx.fill();
+  });
+}
+
+function renderStreak() {
+  const checkins = LS.get('ro_checkins', []);
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    if (checkins.find(c => c.date === dateStr(d))) streak++;
+    else break;
+  }
+  document.getElementById('streakN').textContent = streak;
+}
+
+function renderWins() {
+  const wins = LS.get('ro_wins', []).slice(-3).reverse();
+  const el   = document.getElementById('winsList');
+  if (!wins.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--dim)">No wins yet — log your first one</div>';
+    return;
+  }
+  el.innerHTML = wins.map(w => `
+    <div class="win-entry">
+      ${escHtml(w.text)}
+      <div class="win-dt">${fmtDate(w.date)}</div>
+    </div>`).join('');
+}
+
+function renderPeople() {
+  const people = LS.get('ro_people', defaultPeople());
+  const now    = new Date();
+  document.getElementById('peopleList').innerHTML = people.map(p => {
+    let dTxt = 'not mentioned yet';
+    if (p.last) {
+      const diff = Math.floor((now - new Date(p.last)) / 86400000);
+      dTxt = diff === 0 ? 'today' : diff === 1 ? 'yesterday' : `${diff}d ago`;
+    }
+    return `<div class="person-row">
+      <div class="person-n">${escHtml(p.name)}</div>
+      <div class="person-d">${dTxt}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderVision() {
+  const visions = LS.get('ro_vision', []);
+  const el = document.getElementById('visionTxt');
+  if (visions.length) {
+    el.textContent = visions[visions.length - 1].text.slice(0, 180);
+  }
+}
+
+function renderInsight() {
+  const pats = LS.get('ro_patterns', {});
+  const el   = document.getElementById('insightBox');
+  const msgs = [];
+
+  if ((pats.exercise_mentions || 0) >= 3)
+    msgs.push('Exercise comes up consistently. Your body is a recurring signal.');
+  if ((pats.sleep_mentions || 0) >= 4)
+    msgs.push('Sleep appears a lot. Something worth paying attention to.');
+  if ((pats.settlemate_mentions || 0) >= 5)
+    msgs.push('SettleMate is on your mind constantly. You care about this deeply.');
+  if ((pats.reading_mentions || 0) >= 2)
+    msgs.push('Reading keeps coming up. Maybe it\'s closer to returning than you think.');
+
+  el.textContent = msgs.length ? msgs[0] : 'Come back after a few sessions. Ro is learning your patterns.';
+}
+
+// ───────────────────────────────────────────────────────────
+// SETTINGS
+// ───────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('s-api').value    = getKey();
+  document.getElementById('s-rules').value  = LS.raw('ro_custom_rules');
+  document.getElementById('s-gcal-id').value = LS.raw('ro_gcal_id');
+  if (LS.raw('ro_gcal_connected') === '1' && gcalToken) {
+    document.getElementById('gcal-status').textContent = '✓ Connected';
+  }
+  document.getElementById('settingsBg').classList.add('on');
+}
+
+function closeSettings() { document.getElementById('settingsBg').classList.remove('on'); }
+
+function saveRules() {
+  const rules = document.getElementById('s-rules').value.trim();
+  LS.rawSet('ro_custom_rules', rules);
+  toast('Instructions saved — Ro will follow them from now on');
+  closeSettings();
+}
+
+function clearAll() {
+  if (!confirm('This will erase everything Ro has learned about you. Are you sure?')) return;
+  KEYS.forEach(k => LS.del(k));
+  Object.keys(convs).forEach(m => convs[m] = []);
+  document.getElementById('chat').innerHTML = '';
+  moodNow = '';
+  document.getElementById('mooddot').className = 'mood-dot';
+  closeSettings();
+  toast('Memory cleared. Starting fresh.');
+  refreshDrawer();
+  setTimeout(openingGreeting, 500);
+}
+
+// ───────────────────────────────────────────────────────────
+// UTILITIES
+// ───────────────────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+function fmtDate(ds) {
+  if (!ds) return '';
+  const d = new Date(ds + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ───────────────────────────────────────────────────────────
+// VOICE INPUT (Web Speech API — Chrome / Edge)
+// ───────────────────────────────────────────────────────────
+let recognition  = null;
+let micListening = false;
+
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  const r = new SR();
+  r.continuous      = false;
+  r.interimResults  = true;
+  r.lang            = 'en-US'; // Hebrew also works: 'he-IL'
+
+  r.onstart = () => {
+    micListening = true;
+    document.getElementById('micBtn').classList.add('listening');
+    document.getElementById('msgInp').placeholder = 'Listening…';
+  };
+
+  r.onresult = e => {
+    const inp  = document.getElementById('msgInp');
+    const transcript = Array.from(e.results)
+      .map(r => r[0].transcript).join('');
+    inp.value = transcript;
+    grow(inp);
+  };
+
+  r.onend = () => {
+    micListening = false;
+    document.getElementById('micBtn').classList.remove('listening');
+    document.getElementById('msgInp').placeholder = 'Say anything…';
+    // Auto-send if there's content
+    const txt = document.getElementById('msgInp').value.trim();
+    if (txt) sendMsg();
+  };
+
+  r.onerror = err => {
+    micListening = false;
+    document.getElementById('micBtn').classList.remove('listening');
+    document.getElementById('msgInp').placeholder = 'Say anything…';
+    if (err.error === 'not-allowed') {
+      toast('Microphone access denied — allow it in browser settings');
+    } else if (err.error !== 'no-speech') {
+      toast(`Voice error: ${err.error}`);
+    }
+  };
+
+  return r;
+}
+
+function toggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    toast('Voice input only works in Chrome or Edge');
+    return;
+  }
+  if (micListening) {
+    recognition && recognition.stop();
+    return;
+  }
+  recognition = initSpeech();
+  if (!recognition) return;
+  try { recognition.start(); }
+  catch { toast('Could not start microphone'); }
+}
+
+// ───────────────────────────────────────────────────────────
+// KEYBOARD / CLOSE HANDLERS
+// ───────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeSettings();
+    closeWin();
+    if (document.getElementById('drawer').classList.contains('on')) toggleDrawer();
+  }
+});
+
+document.getElementById('settingsBg').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+
+document.getElementById('winBg').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeWin();
+});
+
+// ───────────────────────────────────────────────────────────
+// GOOGLE CALENDAR
+// ───────────────────────────────────────────────────────────
+let gcalToken    = null;   // in-memory only, not persisted
+let gcalEvents   = [];
+
+function saveGcalId() {
+  const id = document.getElementById('s-gcal-id').value.trim();
+  if (!id) return;
+  LS.rawSet('ro_gcal_id', id);
+  toast('Client ID saved — now tap "Connect Google Calendar"');
+}
+
+function connectGoogle() {
+  const clientId = LS.raw('ro_gcal_id');
+  if (!clientId) { toast('Enter your Google OAuth Client ID first'); return; }
+
+  if (!window.google?.accounts) {
+    toast('Google Identity Services not loaded — check your internet connection');
+    return;
+  }
+
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/calendar.readonly',
+    callback: (resp) => {
+      if (resp.error) { toast(`Google auth error: ${resp.error}`); return; }
+      gcalToken = resp.access_token;
+      LS.rawSet('ro_gcal_connected', '1');
+      document.getElementById('gcal-status').textContent = '✓ Connected';
+      document.getElementById('gcal-dsec').style.display = '';
+      toast('Google Calendar connected');
+      fetchCalendar();
+      closeSettings();
+    }
+  });
+  client.requestAccessToken();
+}
+
+async function fetchCalendar() {
+  if (!gcalToken) return;
+
+  const now   = new Date().toISOString();
+  const end   = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const url   = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${end}&singleEvents=true&orderBy=startTime&maxResults=10`;
+
+  try {
+    const res  = await fetch(url, { headers: { Authorization: `Bearer ${gcalToken}` } });
+    if (!res.ok) {
+      if (res.status === 401) { gcalToken = null; toast('Google session expired — reconnect in Settings'); return; }
+      throw new Error(`Calendar API ${res.status}`);
+    }
+    const data = await res.json();
+    gcalEvents = (data.items || []).map(ev => ({
+      title: ev.summary || 'No title',
+      start: ev.start?.dateTime || ev.start?.date,
+      end:   ev.end?.dateTime   || ev.end?.date,
+      allDay: !ev.start?.dateTime
+    }));
+    renderCalEvents();
+  } catch (e) {
+    console.error('Calendar fetch error:', e);
+    document.getElementById('calEvents').innerHTML = '<div style="font-size:12px;color:var(--dim)">Could not load events</div>';
+  }
+}
+
+function renderCalEvents() {
+  const el = document.getElementById('calEvents');
+  if (!gcalEvents.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--dim)">No events today</div>';
+    return;
+  }
+  el.innerHTML = gcalEvents.map(ev => {
+    const timeStr = ev.allDay ? 'All day' : fmtTime(ev.start);
+    return `<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:11px;color:var(--purple);flex-shrink:0;margin-top:1px;font-variant-numeric:tabular-nums">${timeStr}</div>
+      <div style="font-size:13px;line-height:1.4">${escHtml(ev.title)}</div>
+    </div>`;
+  }).join('');
+}
+
+function fmtTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+// Inject today's calendar into system prompt context
+function calendarContext() {
+  if (!gcalEvents.length) return '';
+  const list = gcalEvents.map(ev => {
+    const t = ev.allDay ? 'all day' : `${fmtTime(ev.start)}–${fmtTime(ev.end)}`;
+    return `• ${ev.title} (${t})`;
+  }).join('\n');
+  return `\n\nTODAY'S CALENDAR:\n${list}`;
+}
+
+// ───────────────────────────────────────────────────────────
+// WHATSAPP
+// ───────────────────────────────────────────────────────────
+function shareToWhatsApp() {
+  // Collect a brief summary of the last Ro message + a one-liner
+  const lastRo = convs[mode].filter(m => m.role === 'assistant' && !m.hidden).slice(-1)[0];
+  const text   = lastRo
+    ? `Ro just told me:\n\n"${lastRo.content.slice(0, 300)}…"`
+    : 'Just had a session with Ro 🧠';
+  const encoded = encodeURIComponent(text);
+  window.open(`https://wa.me/?text=${encoded}`, '_blank');
+}
+
+// WhatsApp quick-contact button (send a pre-filled message to a known contact)
+function whatsappContact(phone, msg) {
+  const encoded = encodeURIComponent(msg || '');
+  window.open(`https://wa.me/${phone}?text=${encoded}`, '_blank');
+}
+
+// ───────────────────────────────────────────────────────────
+// PWA INSTALL
+// ───────────────────────────────────────────────────────────
+let deferredInstall = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+});
+
+function showInstallTip() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    deferredInstall.userChoice.then(r => {
+      if (r.outcome === 'accepted') toast('Ro installed! Find it on your home screen.');
+      deferredInstall = null;
+    });
+  } else {
+    toast('Open Ro from a hosted URL in Chrome/Safari, then use "Add to Home Screen"');
+  }
+}
+
+// ───────────────────────────────────────────────────────────
+// INIT
+// ───────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+
+  if (getKey()) boot();
+  // else API screen is shown by default (visible in HTML)
+});
+
+// Calendar context is appended inside callRo before each API call
+</script>
+</body>
+</html>
