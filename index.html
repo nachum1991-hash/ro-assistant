@@ -1075,7 +1075,7 @@ function getKey() { return localStorage.getItem('ro_api_key') || ''; }
 
 function startWithKey() {
   const k = document.getElementById('api-key-inp').value.trim();
-  if (!k.startsWith('sk-')) { toast('Please enter a valid API key (starts with sk-)'); return; }
+  if (!k) { toast('Please enter your Google Gemini API key'); return; }
   localStorage.setItem('ro_api_key', k);
   boot();
 }
