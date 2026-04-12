@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import anthropic
+import google.generativeai as genai
 import requests
 import os
 import tempfile
@@ -8,11 +8,13 @@ from openai import OpenAI
 
 app = Flask(__name__)
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-WHATSAPP_TOKEN    = os.environ.get("WHATSAPP_TOKEN")
-PHONE_NUMBER_ID   = os.environ.get("PHONE_NUMBER_ID")
-VERIFY_TOKEN      = os.environ.get("VERIFY_TOKEN", "ro_secret_123")
-OPENAI_API_KEY    = os.environ.get("OPENAI_API_KEY")
+GEMINI_API_KEY   = os.environ.get("GEMINI_API_KEY")
+WHATSAPP_TOKEN   = os.environ.get("WHATSAPP_TOKEN")
+PHONE_NUMBER_ID  = os.environ.get("PHONE_NUMBER_ID")
+VERIFY_TOKEN     = os.environ.get("VERIFY_TOKEN", "ro_secret_123")
+OPENAI_API_KEY   = os.environ.get("OPENAI_API_KEY")
+
+genai.configure(api_key=GEMINI_API_KEY)
 
 # In-memory conversation history per user (upgradeable to DB later)
 conversations = {}
@@ -53,6 +55,8 @@ ABOUT NACHUM:
 - In significant debt to parents from master's degree
 - Single, never had a meaningful relationship - aware of this, thinks about it, finds it unusual at 34
 - Wants wealth for freedom and autonomy - not money itself
+- Thinking seriously about where to raise a family long-term
+- Believes deeply in creating his own reality
 - Background in strategic and service design - stakeholder mapping, user journeys, systems thinking
 - His biggest founder strength: he lived the exact problem SettleMate solves
 - Plays football once a week
@@ -72,9 +76,9 @@ CURRENT STRUGGLES:
 - He knows he can flip the switch - your deepest job is to help him access the better version of himself more consistently
 
 HIS PEOPLE:
-- Dina Yael (mother) - lives in Israel. Mother of 8 children. Recently retired breastfeeding consultant. One of the most gentle and empathic people alive. Nachum loves her deeply but struggles to answer her calls - her questions feel intrusive, causing him guilt.
+- Dina Yael (mother) - lives in Israel. Mother of 8 children. Recently retired breastfeeding consultant. One of the most gentle and empathic people alive. Nachum loves her deeply but struggles to answer her calls - her questions feel intrusive, causing him guilt because he knows how good she is.
 - David (father) - lives in Israel, married to Dina
-- Peretz (brother, 36) - secular like Nachum in a deeply religious family - their bond. Extremely close but volatile - profound conversations alongside fights. Mirrors Nachum in many ways, sometimes in depression.
+- Peretz (brother, 36) - secular like Nachum in a deeply religious family - this is their bond. Extremely close but volatile - profound conversations and deep understanding alongside fights. Peretz mirrors Nachum in many ways, sometimes in depression.
 - Sahar (closest friend in Milan) - met on day 2 in Milan. Engineer, recently fired. Engaged to Liron. Wedding May in Israel. Gives Nachum total freedom and believes in him completely.
 - Aviran - SettleMate developer
 
@@ -132,7 +136,6 @@ def transcribe_audio(media_id):
     try:
         oai_client = OpenAI(api_key=OPENAI_API_KEY)
 
-        # Write to a temp file — Whisper needs a file-like object with a name
         with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as tmp:
             tmp.write(audio_bytes)
             tmp_path = tmp.name
@@ -178,31 +181,33 @@ def send_whatsapp_message(to, message):
 # GET RO RESPONSE
 # ─────────────────────────────────────────────
 def get_ro_response(user_id, user_message):
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
     if user_id not in conversations:
         conversations[user_id] = []
 
     conversations[user_id].append({
         "role": "user",
-        "content": user_message
+        "parts": [{"text": user_message}]
     })
 
     # Keep last 20 messages only
     history = conversations[user_id][-20:]
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1024,
-        system=build_system_prompt(),
-        messages=history
+    model = genai.GenerativeModel(
+        model_name="gemini-2.5-flash",
+        system_instruction=build_system_prompt()
     )
 
-    reply = response.content[0].text
+    # Gemini SDK uses 'contents' format
+    response = model.generate_content(
+        contents=history,
+        generation_config=genai.GenerationConfig(max_output_tokens=1024)
+    )
+
+    reply = response.text
 
     conversations[user_id].append({
-        "role": "assistant",
-        "content": reply
+        "role": "model",
+        "parts": [{"text": reply}]
     })
 
     return reply
@@ -241,7 +246,6 @@ def webhook():
         from_num = message["from"]
         msg_type = message.get("type")
 
-        # Group messages have a "recipient_type" of "group" or context with a group JID
         recipient_type = message.get("recipient_type", "")
         context        = message.get("context", {})
         is_group       = (recipient_type == "group") or ("group" in str(context.get("id", "")))
@@ -262,7 +266,6 @@ def webhook():
         elif msg_type == "audio":
             media_id = message["audio"]["id"]
 
-            # Let the user know we're processing (feels more alive)
             send_whatsapp_message(from_num, "🎙 got it, one sec...")
 
             clean_text = transcribe_audio(media_id)

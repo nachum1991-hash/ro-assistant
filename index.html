@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <title>Ro</title>
 
 <!-- PWA -->
@@ -41,8 +41,14 @@
   --red:       #ef4444;
 }
 
-html, body {
+html {
   height: 100%;
+  height: -webkit-fill-available;
+}
+
+body {
+  height: 100%;
+  height: -webkit-fill-available;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -50,6 +56,8 @@ html, body {
   line-height: 1.6;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  /* Prevent rubber-band scroll on iOS */
+  overscroll-behavior: none;
 }
 
 /* ── API SCREEN ───────────────────────────────────────────── */
@@ -103,7 +111,10 @@ html, body {
 
 /* ── APP SHELL ────────────────────────────────────────────── */
 #app {
-  display: none; flex-direction: column; height: 100vh;
+  display: none; flex-direction: column;
+  height: 100vh;
+  height: 100dvh;                  /* dynamic viewport — shrinks with keyboard */
+  height: -webkit-fill-available;  /* iOS Safari fallback */
   position: relative; max-width: 700px; margin: 0 auto;
 }
 #app.live { display: flex; }
@@ -315,6 +326,148 @@ html, body {
   50%       { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
 }
 .mic-btn:disabled { opacity: 0.3; cursor: default; }
+
+/* ── VOICE CHAT MODE ─────────────────────────────────────── */
+.voice-chat-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 600;
+  color: var(--muted); cursor: pointer; white-space: nowrap;
+  transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+}
+.voice-chat-btn:hover { border-color: var(--purple); color: var(--purple); }
+.voice-chat-btn.active {
+  background: var(--purple-bg); border-color: var(--purple);
+  color: var(--purple);
+}
+
+/* Full-screen voice overlay */
+.voice-overlay {
+  position: fixed; inset: 0; background: rgba(13,13,13,0.97);
+  z-index: 90; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 28px;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.voice-overlay.on { opacity: 1; pointer-events: all; }
+
+.voice-orb {
+  width: 120px; height: 120px; border-radius: 50%;
+  background: var(--purple-bg); border: 2px solid var(--purple);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 42px; position: relative; transition: all 0.3s;
+}
+.voice-orb.listening {
+  background: rgba(239,68,68,0.12); border-color: var(--red);
+  animation: orbPulse 1.2s ease-in-out infinite;
+}
+.voice-orb.speaking {
+  background: rgba(29,158,117,0.15); border-color: var(--teal);
+  animation: orbSpeak 0.8s ease-in-out infinite alternate;
+}
+@keyframes orbPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); transform: scale(1); }
+  50%       { box-shadow: 0 0 0 24px rgba(239,68,68,0); transform: scale(1.04); }
+}
+@keyframes orbSpeak {
+  from { box-shadow: 0 0 0 4px rgba(29,158,117,0.2); transform: scale(1); }
+  to   { box-shadow: 0 0 0 18px rgba(29,158,117,0); transform: scale(1.06); }
+}
+
+.voice-status {
+  font-size: 15px; color: var(--muted); text-align: center;
+  min-height: 22px; transition: color 0.3s; max-width: 280px; line-height: 1.5;
+}
+.voice-status.listening { color: var(--red); }
+.voice-status.speaking  { color: var(--teal); }
+
+.voice-transcript {
+  font-size: 14px; color: var(--text); text-align: center;
+  max-width: 300px; line-height: 1.65; min-height: 44px;
+  opacity: 0.8; padding: 0 16px;
+}
+
+.voice-lang-row {
+  display: flex; gap: 8px; align-items: center;
+}
+.voice-lang-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 5px 14px; font-size: 12px;
+  color: var(--muted); cursor: pointer; transition: all 0.2s;
+}
+.voice-lang-btn.on { border-color: var(--purple); color: var(--purple); background: var(--purple-bg); }
+
+.voice-close-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 50%; width: 46px; height: 46px; font-size: 18px;
+  color: var(--muted); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; transition: all 0.2s;
+  margin-top: 8px;
+}
+.voice-close-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* ── ONBOARDING OVERLAY ──────────────────────────────────── */
+.onboard-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  z-index: 95; display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none; transition: opacity 0.4s;
+}
+.onboard-overlay.on { opacity: 1; pointer-events: all; }
+
+.onboard-header {
+  padding: 16px 20px 12px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+.onboard-header-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.onboard-logo { font-size: 18px; font-weight: 800; color: var(--purple); letter-spacing: -1px; }
+.onboard-topic-lbl {
+  font-size: 11px; font-weight: 700; color: var(--dim);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.onboard-topic-name {
+  font-size: 13px; color: var(--muted); margin-top: 2px;
+}
+.onboard-progress-bar {
+  height: 3px; background: var(--bg-high); border-radius: 2px;
+  overflow: hidden; margin-top: 10px;
+}
+.onboard-progress-fill {
+  height: 100%; background: var(--purple); border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+.onboard-chat {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.onboard-chat::-webkit-scrollbar { width: 3px; }
+.onboard-chat::-webkit-scrollbar-thumb { background: var(--border); }
+
+.onboard-input-area {
+  padding: 10px 14px 20px; border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.onboard-input-row { display: flex; gap: 9px; align-items: flex-end; }
+
+.onboard-skip {
+  text-align: center; margin-top: 10px;
+  font-size: 11px; color: var(--dim);
+  cursor: pointer; transition: color 0.2s;
+  background: none; border: none; width: 100%;
+}
+.onboard-skip:hover { color: var(--muted); }
+
+/* Identity drawer section */
+.identity-teaser {
+  font-size: 13px; color: var(--muted); line-height: 1.65;
+  font-style: italic;
+}
+.identity-expand {
+  background: none; border: none; color: var(--purple);
+  font-size: 12px; cursor: pointer; margin-top: 5px;
+  padding: 0; text-decoration: underline; display: block;
+}
 
 /* ── LEFT DRAWER ─────────────────────────────────────────── */
 .overlay {
@@ -532,10 +685,10 @@ em { font-style: italic; color: var(--muted); }
   <div class="api-card">
     <div class="api-logo">Ro</div>
     <div class="api-sub">The most carefully built companion for one person.<br>Entirely private. Lives in your browser.</div>
-    <div class="api-lbl">Anthropic API Key</div>
-    <input class="api-inp" id="api-key-inp" type="password" placeholder="sk-ant-api03-…" autocomplete="off" />
+    <div class="api-lbl">Google Gemini API Key</div>
+    <input class="api-inp" id="api-key-inp" type="password" placeholder="AIza…" autocomplete="off" />
     <button class="api-btn" onclick="startWithKey()">Open Ro →</button>
-    <div class="api-note">Your key is stored only in localStorage on this device. It is never transmitted anywhere except directly to Anthropic's API.</div>
+    <div class="api-note">Your key is stored only in localStorage on this device. It is never sent anywhere except directly to Google's API. Get a free key at aistudio.google.com/apikey</div>
   </div>
 </div>
 
@@ -578,12 +731,14 @@ em { font-style: italic; color: var(--muted); }
   <!-- Input -->
   <div class="input-area">
     <div class="action-row">
+      <button class="voice-chat-btn" id="voiceChatBtn" onclick="toggleVoiceChat()">🎙 Voice chat</button>
       <button class="act-btn win"  onclick="openWin()">🏆 Log a win</button>
       <button class="act-btn quit" onclick="doQuit()">I want to quit</button>
       <button class="act-btn"      onclick="doNotNow()">Not now</button>
-      <button class="act-btn"      onclick="shareToWhatsApp()" title="Share last Ro message to WhatsApp">💬 WhatsApp</button>
+      <button class="act-btn"      onclick="shareToWhatsApp()">💬 WhatsApp</button>
     </div>
     <div class="input-row">
+      <button class="mic-btn" id="attachBtn" onclick="attachFile()" title="Attach PDF">📎</button>
       <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Voice input (Chrome/Edge only)">🎙</button>
       <textarea class="msg-inp" id="msgInp" placeholder="Say anything…" rows="1"
         onkeydown="onKey(event)" oninput="grow(this)"></textarea>
@@ -600,6 +755,12 @@ em { font-style: italic; color: var(--muted); }
   <div class="drawer-head">
     <div class="drawer-title">My World</div>
     <button class="drawer-x" onclick="toggleDrawer()">✕</button>
+  </div>
+
+  <div class="dsec" id="identityDsec">
+    <div class="dsec-lbl">Who Ro Thinks You Are</div>
+    <div id="identityTeaser" class="identity-teaser">Not set yet — start your onboarding session.</div>
+    <button class="identity-expand" id="identityExpandBtn" onclick="toggleIdentityExpand()" style="display:none">read more</button>
   </div>
 
   <div class="dsec">
@@ -654,8 +815,8 @@ em { font-style: italic; color: var(--muted); }
     </div>
 
     <div class="sgrp">
-      <div class="sgrp-lbl">API Key</div>
-      <input class="s-inp" id="s-api" type="password" placeholder="sk-ant-…" />
+      <div class="sgrp-lbl">API Key (Google Gemini)</div>
+      <input class="s-inp" id="s-api" type="password" placeholder="AIza…" />
       <button class="s-save" onclick="saveApiKey()" style="margin-top:10px">Save Key</button>
     </div>
 
@@ -679,6 +840,13 @@ em { font-style: italic; color: var(--muted); }
     </div>
 
     <div class="sgrp">
+      <div class="sgrp-lbl">Live Web Search</div>
+      <div class="sgrp-note">Lets Ro search the internet when you ask. Get a free API key at <strong style="color:var(--text)">tavily.com</strong>. Once set, just ask naturally — "search for…" or "what's the latest on…"</div>
+      <input class="s-inp" id="s-tavily" type="password" placeholder="tvly-…" />
+      <button class="s-save" onclick="saveTavilyKey()" style="margin-top:10px">Save Key</button>
+    </div>
+
+    <div class="sgrp">
       <div class="sgrp-lbl">Install as Phone App</div>
       <div class="sgrp-note" style="line-height:1.8">
         To install Ro on your phone:
@@ -688,6 +856,38 @@ em { font-style: italic; color: var(--muted); }
         <br><br>Your data stays private — it never leaves your device.
       </div>
       <button class="s-save" style="background:var(--bg-high);border:1px solid var(--border);color:var(--text)" onclick="showInstallTip()">Check install availability</button>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">Your Identity</div>
+      <div class="sgrp-note" id="s-identity-status">Not started yet. The deep onboarding session is how Ro truly gets to know you.</div>
+      <button class="s-save" onclick="openOnboarding('full')">Start Deep Onboarding</button>
+      <button class="s-save" id="s-monthly-btn" onclick="openOnboarding('monthly')"
+        style="margin-top:8px;background:var(--bg-high);border:1px solid var(--border);color:var(--text)">Monthly Update</button>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">Weekly Insight</div>
+      <div class="sgrp-note" id="s-weekly-status">Loading…</div>
+      <button class="s-save" onclick="forceWeeklySynthesis()" style="background:var(--bg-high);border:1px solid var(--border);color:var(--text)">Regenerate Now</button>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">Morning Reminder</div>
+      <div class="sgrp-note">Ro sends a browser notification to nudge you to check in. Works when Ro is installed as an app.</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <input class="s-inp" id="s-reminder-time" type="time" value="09:00" style="width:120px;flex-shrink:0"/>
+        <span style="font-size:12px;color:var(--muted)">reminder time</span>
+      </div>
+      <button class="s-save" id="s-reminder-btn" onclick="saveReminder()">Enable Reminder</button>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px" id="s-reminder-status"></div>
+    </div>
+
+    <div class="sgrp">
+      <div class="sgrp-lbl">Backup & Restore</div>
+      <div class="sgrp-note">Export everything Ro has learned about you as a file. Import it on another device or after clearing.</div>
+      <button class="s-save" onclick="exportMemory()" style="background:var(--bg-high);border:1px solid var(--border);color:var(--text)">Export Memory</button>
+      <button class="s-save" onclick="importMemory()" style="margin-top:8px;background:var(--bg-high);border:1px solid var(--border);color:var(--text)">Import Memory</button>
     </div>
 
     <div class="sgrp">
@@ -712,6 +912,48 @@ em { font-style: italic; color: var(--muted); }
   </div>
 </div>
 
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- ONBOARDING OVERLAY                                       -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="onboard-overlay" id="onboardOverlay">
+  <div class="onboard-header">
+    <div class="onboard-header-top">
+      <div class="onboard-logo">Ro</div>
+      <div style="text-align:right">
+        <div class="onboard-topic-lbl" id="onboardTopicLbl">Getting to know you</div>
+        <div class="onboard-topic-name" id="onboardTopicName">—</div>
+      </div>
+    </div>
+    <div class="onboard-progress-bar">
+      <div class="onboard-progress-fill" id="onboardProgressFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="onboard-chat" id="onboardChat"></div>
+
+  <div class="onboard-input-area">
+    <div class="onboard-input-row">
+      <textarea class="msg-inp" id="onboardInp" placeholder="Your answer…" rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();onboardSend()}"
+        oninput="grow(this)"></textarea>
+      <button class="send-btn" id="onboardSendBtn" onclick="onboardSend()">↑</button>
+    </div>
+    <button class="onboard-skip" onclick="skipOnboarding()">skip for now — I'll do this later</button>
+  </div>
+</div>
+
+<!-- Voice Chat Overlay -->
+<div class="voice-overlay" id="voiceOverlay">
+  <div class="voice-orb" id="voiceOrb" onclick="orbTap()" style="cursor:pointer">🎙</div>
+  <div class="voice-status" id="voiceStatus">Tap the orb to start</div>
+  <div class="voice-transcript" id="voiceTranscript"></div>
+  <div class="voice-lang-row">
+    <button class="voice-lang-btn on" id="voiceLangEn" onclick="setVoiceLang('en-US')">English</button>
+    <button class="voice-lang-btn"    id="voiceLangHe" onclick="setVoiceLang('he-IL')">עברית</button>
+  </div>
+  <button class="voice-close-btn" onclick="stopVoiceChat()">✕</button>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -723,10 +965,13 @@ em { font-style: italic; color: var(--muted); }
 // STATE
 // ───────────────────────────────────────────────────────────
 let mode     = 'now';
-let loading  = false;
+let loading     = false;
+let pendingFile = null; // { uri, name, mimeType } — set after PDF upload, cleared after send
 let moodNow  = '';   // good | neutral | low | ''
+let sessionStart = new Date().toISOString();
 
 // Conversation history per mode: [{role, content, hidden?}]
+// Loaded from localStorage on boot, saved on every message + page close
 const convs = { now:[], think:[], build:[], reflect:[], world:[] };
 
 // Pomodoro
@@ -751,7 +996,67 @@ const LS = {
 
 const KEYS = ['ro_checkins','ro_wins','ro_gratitude','ro_patterns','ro_struggles',
               'ro_interventions','ro_people','ro_vision','ro_identity',
-              'ro_custom_rules','ro_conversations'];
+              'ro_custom_rules','ro_conversations','ro_weekly','ro_daily_brief'];
+
+// ───────────────────────────────────────────────────────────
+// GEMINI API HELPER
+// Single function for all Gemini Flash calls.
+// system  — string (optional, the system instruction)
+// msgs    — array of { role: 'user'|'assistant', content: string }
+// maxTok  — max output tokens
+// Returns the reply text, or null on error.
+// ───────────────────────────────────────────────────────────
+async function geminiCall(system, msgs, maxTok = 1024) {
+  const apiKey = getKey();
+  if (!apiKey) return null;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  // Convert internal role names: 'assistant' → 'model'
+  const contents = msgs.map(({ role, content, filePart }) => {
+    const parts = [];
+    if (filePart) parts.push(filePart);
+    parts.push({ text: content || ' ' });
+    return { role: role === 'assistant' ? 'model' : 'user', parts };
+  });
+
+  // Gemini requires alternating user/model turns — merge consecutive same-role msgs
+  const merged = [];
+  for (const m of contents) {
+    if (merged.length && merged[merged.length - 1].role === m.role) {
+      merged[merged.length - 1].parts[0].text += '\n' + m.parts[0].text;
+    } else {
+      merged.push(m);
+    }
+  }
+  // Must start with user
+  if (merged.length && merged[0].role === 'model') {
+    merged.unshift({ role: 'user', parts: [{ text: '.' }] });
+  }
+
+  const body = {
+    contents: merged,
+    generationConfig: { maxOutputTokens: maxTok },
+    tools: [{ urlContext: {} }]
+  };
+  if (system) {
+    body.systemInstruction = { parts: [{ text: system }] };
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error?.message || `HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '…';
+}
 
 function defaultPeople() {
   return [
@@ -777,7 +1082,7 @@ function startWithKey() {
 
 function saveApiKey() {
   const k = document.getElementById('s-api').value.trim();
-  if (!k.startsWith('sk-')) { toast('Invalid key format'); return; }
+  if (!k) { toast('Enter an API key first'); return; }
   localStorage.setItem('ro_api_key', k);
   toast('API key saved');
 }
@@ -785,27 +1090,103 @@ function saveApiKey() {
 // ───────────────────────────────────────────────────────────
 // BOOT
 // ───────────────────────────────────────────────────────────
-function boot() {
+async function boot() {
   document.getElementById('api-screen').style.display = 'none';
   document.getElementById('app').classList.add('live');
 
   // Init people if not set
   if (!LS.get('ro_people')) LS.set('ro_people', defaultPeople());
 
+  // Restore persisted conversations
+  const saved = LS.get('ro_conv_state', {});
+  Object.keys(convs).forEach(m => { if (saved[m]) convs[m] = saved[m]; });
+
+  // Restore mood dot
+  const checkins = LS.get('ro_checkins', []);
+  if (checkins.length) {
+    const last = checkins[checkins.length - 1];
+    if (last.date === dateStr()) {
+      moodNow = last.mood;
+      const dot = document.getElementById('mooddot');
+      if (moodNow) dot.className = `mood-dot ${moodNow}`;
+    }
+  }
+
   // Prefill settings
-  document.getElementById('s-api').value   = getKey();
-  document.getElementById('s-rules').value = LS.raw('ro_custom_rules');
+  document.getElementById('s-api').value    = getKey();
+  document.getElementById('s-rules').value  = LS.raw('ro_custom_rules');
+  document.getElementById('s-gcal-id').value = LS.raw('ro_gcal_id');
 
   startClock();
   refreshDrawer();
 
-  // Restore Google Calendar UI if previously connected (token will need re-auth on next visit)
+  // Restore Google Calendar UI if previously connected
   if (LS.raw('ro_gcal_connected') === '1') {
     document.getElementById('gcal-dsec').style.display = '';
     document.getElementById('gcal-status').textContent = '(reconnect in Settings)';
   }
 
-  setTimeout(openingGreeting, 450);
+  // Seed the first identity entry (the reframe) if identity is completely empty
+  seedIdentityReframe();
+
+  // Background: weekly psychological synthesis (fire-and-forget)
+  maybeWeeklySynthesis();
+
+  // Start reminder loop if enabled
+  if (LS.raw('ro_reminder_on') === '1') startReminderLoop();
+
+  // Render any existing Now conversation without re-greeting
+  if (checkNeedsOnboarding()) {
+    setTimeout(() => startOnboarding('full'), 600);
+  } else if (convs['now'].length > 0) {
+    convs['now'].filter(x => !x.hidden).forEach(x =>
+      addMsg(x.role === 'user' ? 'user' : 'ro', x.content)
+    );
+    await maybeDailyBrief();
+    reEntryGreeting();
+  } else {
+    await maybeDailyBrief();
+    setTimeout(openingGreeting, 450);
+  }
+}
+
+function seedIdentityReframe() {
+  const ids = LS.get('ro_identity', []);
+  if (ids.find(x => x.type === 'seed')) return; // already seeded
+  ids.unshift({
+    completed: '2026-04-12',
+    type: 'seed',
+    version: 0,
+    document: 'A reframe Nachum holds and wants Ro to reflect back when he is low: "Being 34 and single is not something wrong with me. It means I still have the chance to meet the love of my life and give her everything she deserves." This is his own words, from a moment of clarity. It is true. Hold it for him.',
+    rawAnswers: []
+  });
+  LS.set('ro_identity', ids);
+}
+
+function saveConvState() {
+  LS.set('ro_conv_state', convs);
+}
+
+function reEntryGreeting() {
+  // Short re-entry — acknowledges they're back, doesn't repeat the full greeting
+  const tp = timePeriod();
+  const checkins = LS.get('ro_checkins', []);
+  const wins = LS.get('ro_wins', []);
+
+  const prompts = {
+    early_morning: "He's back early this morning. One short welcoming line — acknowledge you remember where things left off. One quiet question. Two sentences max.",
+    morning:       "He's back in the morning. Brief — acknowledge the return, one forward-looking question.",
+    afternoon:     "He's back mid-afternoon. Short check-in — how is the day going so far? One question.",
+    evening:       "He's back in the evening. Warm and brief — one question about how the day landed.",
+    night:         "He's back at night. Calm, warm, no agenda. One question.",
+    late_night:    "He's back late. Very calm, no pressure. One short line."
+  };
+
+  const recentWins = wins.slice(-2).map(w => w.text).join(', ');
+  const extra = recentWins ? ` Recent wins on record: "${recentWins}".` : '';
+
+  const prompt = (prompts[tp] || prompts.night) + extra + ' Do NOT re-introduce yourself. You know each other.';
+  callRo([{ role: 'user', content: prompt }], false);
 }
 
 // ───────────────────────────────────────────────────────────
@@ -857,7 +1238,7 @@ function buildContext() {
   const visions   = LS.get('ro_vision',    []);
   const convSums  = LS.get('ro_conversations', []);
 
-  return [
+  const lines = [
     `Recent check-ins (last 7): ${JSON.stringify(checkins.slice(-7))}`,
     `Recent wins (last 5): ${JSON.stringify(wins.slice(-5))}`,
     `Recent gratitude (last 5): ${JSON.stringify(gratitude.slice(-5))}`,
@@ -865,7 +1246,12 @@ function buildContext() {
     `People & relationships: ${JSON.stringify(people)}`,
     `90-day visions (last 3): ${JSON.stringify(visions.slice(-3))}`,
     `Recent session summaries: ${JSON.stringify(convSums.slice(-5))}`
-  ].join('\n');
+  ];
+
+  const todayBrief = LS.get('ro_daily_brief', []).find(b => b.date === dateStr());
+  if (todayBrief) lines.push(`Today's morning brief: ${todayBrief.brief}`);
+
+  return lines.join('\n');
 }
 
 function modeContext() {
@@ -935,6 +1321,12 @@ You never lecture. You never moralize. You acknowledge first, get curious second
 • Sahar (closest friend in Milan) — met on day 2 in Milan, 1.5 years ago. Engineer, recently fired, finishing work next month. Engaged to Liron, lives 20–30 minutes walk away. Very different from Nachum but gives him total freedom, confidence, and space to be exactly himself. Believes in Nachum completely. The foundation of his social life in Milan. Sahar and Liron's wedding is in May in Israel.
 • Aviran — SettleMate developer
 
+${(()=>{
+  const ids = LS.get('ro_identity', []);
+  const docs = ids.filter(x => x.document).map(x => x.document);
+  if (!docs.length) return '';
+  return `\n━━━ NACHUM'S IDENTITY (HIS OWN WORDS) ━━━\n${docs[docs.length-1]}\n`;
+})()}
 ━━━ CURRENT MODE ━━━
 ${modeContext()}
 
@@ -945,7 +1337,12 @@ Tone: ${timeTone()}
 ━━━ PATTERN HISTORY ━━━
 ${ctx}
 
-━━━ TODAY'S STATE ━━━
+${(()=>{
+  const weekly = LS.get('ro_weekly', []);
+  if (!weekly.length) return '';
+  const last = weekly[weekly.length - 1];
+  return `━━━ WEEKLY PSYCHOLOGICAL INSIGHT (${last.date}) ━━━\n${last.synthesis}\n\n`;
+})()}━━━ TODAY'S STATE ━━━
 ${lastState}
 
 ━━━ CUSTOM RULES FROM NACHUM ━━━
@@ -1015,35 +1412,13 @@ async function callRo(apiMessages, isGreeting = false) {
   const typingEl = appendTyping();
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: buildSystem(),
-        messages: apiMessages.map(({ role, content }) => ({ role, content }))
-      })
-    });
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `HTTP ${res.status}`);
-    }
-
-    const data  = await res.json();
-    const reply = data.content[0]?.text || '…';
+    const reply = await geminiCall(buildSystem(), apiMessages, 1024);
+    if (!reply) throw new Error('Empty response');
 
     typingEl.remove();
     addMsg('ro', reply);
 
     if (isGreeting) {
-      // Seed conversation: hidden user prompt + Ro's greeting
       convs[mode] = [
         { role: 'user',      content: apiMessages[0].content, hidden: true },
         { role: 'assistant', content: reply }
@@ -1052,11 +1427,13 @@ async function callRo(apiMessages, isGreeting = false) {
       convs[mode].push({ role: 'assistant', content: reply });
     }
 
+    saveConvState();
     scanForData(reply, 'ro');
+    maybeAutoSummarize();
 
   } catch (e) {
     typingEl.remove();
-    addMsg('ro', `Something went wrong: ${e.message}.\n\nDouble-check your API key in Settings — and make sure it has billing enabled.`);
+    addMsg('ro', `Something went wrong: ${e.message}.\n\nDouble-check your Google Gemini API key in Settings — get one at aistudio.google.com/apikey`);
     console.error(e);
   }
 
@@ -1068,7 +1445,7 @@ async function callRo(apiMessages, isGreeting = false) {
 function apiMsgs() {
   return convs[mode]
     .slice(-24)
-    .map(({ role, content }) => ({ role, content }));
+    .map(({ role, content, filePart }) => ({ role, content, filePart }));
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1077,16 +1454,40 @@ function apiMsgs() {
 async function sendMsg() {
   const el  = document.getElementById('msgInp');
   const txt = el.value.trim();
-  if (!txt || loading) return;
+  if ((!txt && !pendingFile) || loading) return;
 
+  const sendTxt = txt || (pendingFile ? 'What can you tell me about this document?' : '');
   el.value = ''; grow(el);
-  addMsg('user', txt);
-  convs[mode].push({ role: 'user', content: txt });
+  addMsg('user', sendTxt);
+
+  const msgObj = { role: 'user', content: sendTxt };
+  if (pendingFile) {
+    if (pendingFile.inline) {
+      msgObj.filePart = { inlineData: { mimeType: pendingFile.mimeType, data: pendingFile.base64 } };
+    } else {
+      msgObj.filePart = { fileData: { mimeType: pendingFile.mimeType, fileUri: pendingFile.uri } };
+    }
+    pendingFile = null;
+    document.getElementById('attachBtn').style.color = '';
+  }
+  convs[mode].push(msgObj);
 
   // Side-effects
   scanForData(txt, 'user');
   detectMood(txt);
   logCheckin(txt);
+
+  // Web search interception
+  const tavilyKey = LS.raw('ro_tavily_key');
+  if (tavilyKey && needsSearch(txt)) {
+    const searchingEl = appendSearching();
+    const results = await searchWeb(txt);
+    searchingEl.remove();
+    if (results) {
+      const lastMsg = convs[mode][convs[mode].length - 1];
+      lastMsg.content = txt + `\n\n[Web search results for context:\n${results}]`;
+    }
+  }
 
   await callRo(apiMsgs());
   refreshDrawer();
@@ -1173,31 +1574,70 @@ function scanForData(text, who) {
   const now = new Date().toISOString();
   const pats = LS.get('ro_patterns', {});
 
-  // Sleep / tired
-  if (/sleep|slept|tired|exhausted|insomnia/.test(low)) {
-    pats.sleep_mentions = (pats.sleep_mentions || 0) + 1;
-    pats.sleep_last = now;
+  const bump = (key) => { pats[key] = (pats[key] || 0) + 1; };
+
+  // ── Physical / energy ──
+  if (/sleep|slept|tired|exhausted|insomnia|לישון|עייף|עייפות/.test(low)) {
+    bump('sleep_mentions'); pats.sleep_last = now;
   }
-  // Exercise
-  if (/football|walk|run|gym|exercise|workout|hike/.test(low)) {
-    pats.exercise_mentions = (pats.exercise_mentions || 0) + 1;
-    pats.exercise_last = now;
+  if (/football|כדורגל|walk|run|gym|exercise|workout|hike|sport/.test(low)) {
+    bump('exercise_mentions'); pats.exercise_last = now;
   }
-  // SettleMate
-  if (/settlemate|aviran/.test(low)) {
-    pats.settlemate_mentions = (pats.settlemate_mentions || 0) + 1;
+  if (/eat|ate|food|אכל|אוכל|hungry|אוכל|pizza|pasta|lunch|dinner|breakfast/.test(low)) {
+    bump('food_mentions');
   }
-  // Reading
-  if (/read|reading|book/.test(low)) {
-    pats.reading_mentions = (pats.reading_mentions || 0) + 1;
+  if (/energy|energized|focused|productive|אנרגיה|ממוקד/.test(low)) {
+    bump('high_energy_mentions'); pats.last_high_energy = now;
   }
+  if (/no energy|drained|burnt|wasted|אין לי כוח|לא יכול/.test(low)) {
+    bump('low_energy_mentions'); pats.last_low_energy = now;
+  }
+
+  // ── Work / SettleMate ──
+  if (/settlemate|settle.?mate|aviran/.test(low)) {
+    bump('settlemate_mentions'); pats.settlemate_last = now;
+  }
+  if (/job|internship|apply|cv|interview|linkedin|עבודה|ראיון/.test(low)) {
+    bump('job_search_mentions'); pats.job_search_last = now;
+  }
+  if (/procrastin|avoiding|distract|phone|scroll|פייסבוק|אינסטגרם|טלפון/.test(low)) {
+    bump('procrastination_mentions');
+  }
+
+  // ── Mental / emotional ──
+  if (/anxious|anxiety|stress|stressed|לחץ|חרדה/.test(low)) {
+    bump('anxiety_mentions');
+  }
+  if (/happy|excited|great|amazing|unstoppable|שמח|נהדר|מדהים/.test(low)) {
+    bump('positive_mentions'); pats.last_positive = now;
+  }
+  if (/worthless|useless|failing|lost|hopeless|אני לא שווה|לא מסוגל/.test(low)) {
+    bump('low_self_mentions'); pats.last_low_self = now;
+  }
+
+  // ── Habits ──
+  if (/read|reading|book|קרא|ספר/.test(low)) {
+    bump('reading_mentions');
+  }
+  if (/meditat|breathe|breathing|נשימה/.test(low)) {
+    bump('mindfulness_mentions');
+  }
+  if (/phone|screen|scroll|social media/.test(low) && who === 'user') {
+    bump('phone_mentions');
+  }
+
+  // ── Italy / location ──
+  if (/milan|milano|italy|italia|denmark|finland|dubai|israel|ישראל|תל אביב/.test(low)) {
+    bump('location_mentions');
+  }
+
   LS.set('ro_patterns', pats);
 
-  // People mentions
+  // ── People mentions ──
   const nameMap = {
-    'dina':'Dina Yael', 'mom':'Dina Yael', 'mother':'Dina Yael', 'ima':'Dina Yael',
-    'david':'David', 'dad':'David', 'father':'David', 'aba':'David',
-    'peretz':'Peretz', 'brother':'Peretz',
+    'dina':'Dina Yael', 'mom':'Dina Yael', 'mother':'Dina Yael', 'ima':'Dina Yael', 'אמא':'Dina Yael',
+    'david':'David', 'dad':'David', 'father':'David', 'aba':'David', 'אבא':'David',
+    'peretz':'Peretz', 'brother':'Peretz', 'אח':'Peretz',
     'sahar':'Sahar', 'liron':'Sahar',
     'aviran':'Aviran'
   };
@@ -1211,43 +1651,361 @@ function scanForData(text, who) {
   });
   if (changed) LS.set('ro_people', people);
 
-  // Gratitude extraction (Reflect mode, user messages)
+  // ── Gratitude (Reflect mode, user messages) ──
   if (who === 'user' && mode === 'reflect') {
-    if (/grateful|gratitude|thankful|appreciate/.test(low)) {
+    if (/grateful|gratitude|thankful|appreciate|thankful|אסיר תודה|תודה על/.test(low)) {
       const g = LS.get('ro_gratitude', []);
       g.push({ date: dateStr(), text: text.slice(0, 300), ts: now });
       LS.set('ro_gratitude', g);
     }
   }
 
-  // Vision extraction
-  if (/90.day|ninety.day|vision|in 3 months|in three months/.test(low)) {
+  // ── Vision / 90-day ──
+  if (/90.day|ninety.day|vision|in 3 months|in three months|90 יום/.test(low)) {
     const snippet = text.slice(0, 300);
     const visions = LS.get('ro_vision', []);
-    // Only add if meaningfully different from last
     const last = visions[visions.length - 1];
     if (!last || last.text !== snippet) {
       visions.push({ date: dateStr(), text: snippet, ts: now });
       LS.set('ro_vision', visions);
     }
   }
+
+  // ── Struggles ──
+  if (who === 'user' && /quit|gave up|slipped|failed|didn't|didn't|couldn't|נכשל|ויתרתי|לא הצלחתי/.test(low)) {
+    const struggles = LS.get('ro_struggles', []);
+    struggles.push({ date: dateStr(), text: text.slice(0, 200), mode, ts: now });
+    LS.set('ro_struggles', struggles);
+  }
+}
+
+// ───────────────────────────────────────────────────────────
+// AUTO SESSION SUMMARIZE
+// Fires when a conversation reaches 8+ messages — asks Claude
+// to write a 2-sentence summary and stores it as longitudinal context
+// ───────────────────────────────────────────────────────────
+let summarizing = false;
+async function maybeAutoSummarize() {
+  const msgs = convs[mode].filter(x => !x.hidden);
+  // Only summarize when we hit 8 messages and haven't summarized this session
+  if (msgs.length !== 8 || summarizing) return;
+  summarizing = true;
+
+  const apiKey = getKey();
+  if (!apiKey) return;
+
+  const transcript = msgs.map(m =>
+    `${m.role === 'user' ? 'Nachum' : 'Ro'}: ${m.content.slice(0, 300)}`
+  ).join('\n');
+
+  try {
+    const summary = await geminiCall(null, [{
+      role: 'user',
+      content: `Summarize this conversation in 2 sentences. Focus on emotional state, main topic, and any decisions or insights. Be specific — this will be read by Ro in future sessions.\n\n${transcript}`
+    }], 200);
+    if (!summary) return;
+
+    const convSums = LS.get('ro_conversations', []);
+    convSums.push({
+      date: dateStr(),
+      mode,
+      ts: new Date().toISOString(),
+      summary
+    });
+    // Keep last 20 summaries
+    if (convSums.length > 20) convSums.splice(0, convSums.length - 20);
+    LS.set('ro_conversations', convSums);
+  } catch (e) {
+    console.error('Summary error:', e);
+  }
+}
+
+// ───────────────────────────────────────────────────────────
+// WEEKLY PSYCHOLOGICAL SYNTHESIS
+// Fires on boot if no entry exists or last entry is 7+ days old.
+// Reads 14 days of data → writes a 3-sentence psychological insight.
+// ───────────────────────────────────────────────────────────
+async function maybeWeeklySynthesis() {
+  const apiKey = getKey();
+  if (!apiKey) return;
+
+  const entries = LS.get('ro_weekly', []);
+  if (entries.length > 0) {
+    const last = entries[entries.length - 1];
+    const daysSince = (Date.now() - new Date(last.ts).getTime()) / 86400000;
+    if (daysSince < 7) return;
+  } else {
+    // Only run if there's enough data (at least 3 check-ins)
+    const checkins = LS.get('ro_checkins', []);
+    if (checkins.length < 3) return;
+  }
+
+  const checkins  = LS.get('ro_checkins',  []).slice(-14);
+  const patterns  = LS.get('ro_patterns',  {});
+  const summaries = LS.get('ro_conversations', []).slice(-10);
+  const struggles = LS.get('ro_struggles', []).slice(-10);
+
+  const prompt = `You are analyzing psychological patterns for Nachum. Based on the data below, write exactly 3 sentences — no more, no less:
+1. What is the dominant pattern you see in his energy and mood over the last week?
+2. What behavioral tendency is most active right now (positive or negative)?
+3. What single shift would have the highest leverage for him this week?
+
+Be specific. Reference actual data points. No generic advice.
+
+CHECK-INS: ${JSON.stringify(checkins)}
+PATTERNS: ${JSON.stringify(patterns)}
+SESSION SUMMARIES: ${JSON.stringify(summaries)}
+STRUGGLES: ${JSON.stringify(struggles)}`;
+
+  try {
+    const synthesis = await geminiCall(null, [{ role: 'user', content: prompt }], 300);
+    if (!synthesis) return;
+
+    const entries2 = LS.get('ro_weekly', []);
+    entries2.push({ date: dateStr(), week_of: dateStr(), synthesis, ts: new Date().toISOString() });
+    if (entries2.length > 12) entries2.splice(0, entries2.length - 12);
+    LS.set('ro_weekly', entries2);
+  } catch (e) { console.error('Weekly synthesis error:', e); }
+}
+
+async function forceWeeklySynthesis() {
+  const entries = LS.get('ro_weekly', []);
+  if (entries.length > 0) {
+    entries[entries.length - 1].ts = new Date(0).toISOString(); // force expire
+    LS.set('ro_weekly', entries);
+  }
+  toast('Generating weekly insight…');
+  await maybeWeeklySynthesis();
+  // Refresh the status text in settings
+  const el = document.getElementById('s-weekly-status');
+  if (el) {
+    const updated = LS.get('ro_weekly', []);
+    el.textContent = updated.length
+      ? `Last generated: ${fmtDate(updated[updated.length - 1].date)}`
+      : 'Could not generate — need more conversation data first.';
+  }
+}
+
+// ───────────────────────────────────────────────────────────
+// TAVILY WEB SEARCH
+// ───────────────────────────────────────────────────────────
+function needsSearch(text) {
+  const low = text.toLowerCase();
+  return /\b(search|look up|look for|find out|what'?s happening|latest on|news about|current.*job|who is|when did|how much|price of|research|what are the)\b/.test(low)
+    || /חפש|מצא|מה קורה|חדשות|מה המצב ב/.test(low);
+}
+
+async function searchWeb(query) {
+  const key = LS.raw('ro_tavily_key');
+  if (!key) return null;
+  try {
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: key, query, max_results: 4, search_depth: 'basic' })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.results || []).map(r => `• ${r.title}: ${(r.content || '').slice(0, 200)}`).join('\n');
+  } catch (e) { console.error('Tavily error:', e); return null; }
+}
+
+function appendSearching() {
+  const chat = document.getElementById('chat');
+  const w = document.createElement('div');
+  w.className = 'msg-wrap ro';
+  w.innerHTML = `
+    <div class="avatar">Ro</div>
+    <div class="msg-body">
+      <div class="bubble" style="color:var(--muted);font-size:13px">🔍 Searching the web…</div>
+    </div>`;
+  chat.appendChild(w);
+  chat.scrollTop = chat.scrollHeight;
+  return w;
+}
+
+// ───────────────────────────────────────────────────────────
+// PDF ATTACHMENT
+// ───────────────────────────────────────────────────────────
+function appendUploadingBubble(name) {
+  const chat = document.getElementById('chat');
+  const w = document.createElement('div');
+  w.className = 'msg-wrap user';
+  w.innerHTML = `
+    <div class="msg-body">
+      <div class="bubble" style="color:var(--muted);font-size:13px">⬆️ Uploading ${escHtml(name)}…</div>
+    </div>`;
+  chat.appendChild(w);
+  chat.scrollTop = chat.scrollHeight;
+  return w;
+}
+
+async function attachFile() {
+  const apiKey = getKey();
+  if (!apiKey) { toast('No API key — check Settings'); return; }
+
+  const input = document.createElement('input');
+  input.type   = 'file';
+  input.accept = 'application/pdf,image/jpeg,image/png,image/webp,image/gif';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+
+    const isImage = file.type.startsWith('image/');
+    const maxSize = isImage ? 10 * 1024 * 1024 : 20 * 1024 * 1024;
+    if (file.size > maxSize) { toast(`File too large — max ${isImage ? '10' : '20'}MB`); return; }
+
+    // Images: use inline base64 (no upload needed — faster, simpler)
+    if (isImage) {
+      const uploadEl = appendUploadingBubble(file.name);
+      try {
+        const arrayBuf = await file.arrayBuffer();
+        const bytes    = new Uint8Array(arrayBuf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+
+        pendingFile = { base64, name: file.name, mimeType: file.type, inline: true };
+        uploadEl.remove();
+
+        // Show image preview in chat
+        const chat = document.getElementById('chat');
+        const w = document.createElement('div');
+        w.className = 'msg-wrap user';
+        w.innerHTML = `<div class="msg-body"><div class="bubble" style="padding:6px">
+          <img src="data:${file.type};base64,${base64}" style="max-width:220px;max-height:180px;border-radius:8px;display:block"/>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">${escHtml(file.name)}</div>
+        </div></div>`;
+        chat.appendChild(w);
+        chat.scrollTop = chat.scrollHeight;
+
+        document.getElementById('attachBtn').style.color = 'var(--purple)';
+        document.getElementById('msgInp').focus();
+        toast('Image ready — ask Ro about it');
+      } catch (e) {
+        uploadEl.remove();
+        toast(`Image error: ${e.message}`);
+      }
+      return;
+    }
+
+    // PDFs: upload to Gemini Files API
+    const uploadEl = appendUploadingBubble(file.name);
+    try {
+      const metadata = JSON.stringify({ file: { displayName: file.name } });
+      const formData = new FormData();
+      formData.append('metadata', new Blob([metadata], { type: 'application/json' }));
+      formData.append('file', new Blob([await file.arrayBuffer()], { type: 'application/pdf' }));
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+        { method: 'POST', headers: { 'X-Goog-Upload-Protocol': 'multipart' }, body: formData }
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const uri  = data.file?.uri;
+      if (!uri) throw new Error('No file URI returned');
+
+      pendingFile = { uri, name: file.name, mimeType: 'application/pdf' };
+      uploadEl.remove();
+      addMsg('user', `📄 ${file.name} — ready. Ask me anything about it.`);
+      document.getElementById('attachBtn').style.color = 'var(--purple)';
+      document.getElementById('msgInp').focus();
+      toast('PDF ready — type your question and send');
+
+    } catch (e) {
+      uploadEl.remove();
+      toast(`Upload failed: ${e.message}`);
+      console.error('File upload error:', e);
+    }
+  };
+  input.click();
+}
+
+function saveTavilyKey() {
+  const key = document.getElementById('s-tavily').value.trim();
+  if (!key) { toast('Enter a Tavily API key first'); return; }
+  LS.rawSet('ro_tavily_key', key);
+  toast('Web search enabled — Ro can now look things up');
+  closeSettings();
+}
+
+// ───────────────────────────────────────────────────────────
+// DAILY BRIEF
+// Fires each morning (6am–12pm) on first boot of the day.
+// Generates a 3-bullet brief and shows it as Ro's first message.
+// ───────────────────────────────────────────────────────────
+async function maybeDailyBrief() {
+  const h = new Date().getHours();
+  if (h < 6 || h >= 12) return;
+
+  const briefs = LS.get('ro_daily_brief', []);
+  if (briefs.find(b => b.date === dateStr())) return;
+
+  const apiKey = getKey();
+  if (!apiKey) return;
+
+  const cal      = calendarContext();
+  const patterns = LS.get('ro_patterns', {});
+  const checkins = LS.get('ro_checkins', []).slice(-3);
+  const wins     = LS.get('ro_wins',     []).slice(-3);
+
+  // Optional Tavily context for morning relevance
+  let searchCtx = '';
+  const tavilyKey = LS.raw('ro_tavily_key');
+  if (tavilyKey) {
+    const results = await searchWeb('SettleMate relocation app Italy OR product designer jobs Denmark Finland Dubai');
+    if (results) searchCtx = `\nRELEVANT NEWS:\n${results}`;
+  }
+
+  const prompt = `Write Nachum's morning brief. Exactly 3 bullet points. Each bullet is one short, specific sentence. No intro line, no outro. Just the 3 bullets starting with •
+
+- Bullet 1: What should his #1 focus be today based on recent patterns and priorities?
+- Bullet 2: One thing to watch out for or a risk/opportunity from recent context.
+- Bullet 3: One grounding line — something true that steadies him for the day.
+
+DATA:
+CALENDAR: ${cal || 'No events today'}
+PATTERNS: ${JSON.stringify(patterns)}
+RECENT CHECK-INS: ${JSON.stringify(checkins)}
+RECENT WINS: ${JSON.stringify(wins)}${searchCtx}`;
+
+  try {
+    const brief = await geminiCall(null, [{ role: 'user', content: prompt }], 200);
+    if (!brief) return;
+
+    const briefs2 = LS.get('ro_daily_brief', []);
+    briefs2.push({ date: dateStr(), brief, ts: new Date().toISOString() });
+    if (briefs2.length > 14) briefs2.splice(0, briefs2.length - 14);
+    LS.set('ro_daily_brief', briefs2);
+
+    addMsg('ro', `☀️ Morning brief\n\n${brief}`);
+    convs[mode].push({ role: 'assistant', content: `Morning brief:\n\n${brief}`, hidden: false });
+    saveConvState();
+  } catch (e) { console.error('Daily brief error:', e); }
 }
 
 // ───────────────────────────────────────────────────────────
 // MOOD DETECTION
 // ───────────────────────────────────────────────────────────
-const POS = ['great','amazing','fantastic','good','excellent','happy','excited','motivated','energy','productive','win','won','success','ready','unstoppable','love','proud','crushing','nailed'];
-const NEG = ['terrible','awful','bad','tired','exhausted','depressed','anxious','quit','worthless','failing','stuck','lost','empty','hopeless','struggling','mess','disaster','hate','burnt'];
+const POS_RX = /great|amazing|fantastic|good|excellent|happy|excited|motivated|productive|winning|won|success|ready|unstoppable|proud|nailed|crushing|love|שמח|מדהים|נהדר|אחלה|קדימה|מוכן|הצלחה|מנצח/;
+const NEG_RX = /terrible|awful|bad|tired|exhausted|depressed|anxious|quit|worthless|failing|stuck|lost|empty|hopeless|struggling|disaster|hate|burnt|useless|עייף|נורא|גרוע|אבוד|לא מסוגל|אין לי כוח|מדוכא|חרדה/;
 
 function detectMood(txt) {
-  const words = txt.toLowerCase().split(/\W+/);
-  let score = 0;
-  words.forEach(w => { if (POS.includes(w)) score++; if (NEG.includes(w)) score--; });
+  const low = txt.toLowerCase();
+  const posCount = (low.match(new RegExp(POS_RX.source, 'g')) || []).length;
+  const negCount = (low.match(new RegExp(NEG_RX.source, 'g')) || []).length;
+  const score = posCount - negCount;
 
   const dot = document.getElementById('mooddot');
-  if (score >= 1)      { dot.className = 'mood-dot good';    moodNow = 'good'; }
-  else if (score <= -2){ dot.className = 'mood-dot low';     moodNow = 'low'; }
-  else                 { dot.className = 'mood-dot neutral';  moodNow = 'neutral'; }
+  if (score >= 1)       { dot.className = 'mood-dot good';    moodNow = 'good'; }
+  else if (score <= -1) { dot.className = 'mood-dot low';     moodNow = 'low'; }
+  else                  { dot.className = 'mood-dot neutral';  moodNow = 'neutral'; }
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1408,6 +2166,7 @@ function toggleDrawer() {
 }
 
 function refreshDrawer() {
+  renderIdentityDrawer();
   renderMoodPills();
   renderMoodChart();
   renderStreak();
@@ -1532,20 +2291,45 @@ function renderVision() {
 }
 
 function renderInsight() {
-  const pats = LS.get('ro_patterns', {});
-  const el   = document.getElementById('insightBox');
-  const msgs = [];
+  const pats     = LS.get('ro_patterns', {});
+  const checkins = LS.get('ro_checkins', []);
+  const el       = document.getElementById('insightBox');
+  const msgs     = [];
 
-  if ((pats.exercise_mentions || 0) >= 3)
-    msgs.push('Exercise comes up consistently. Your body is a recurring signal.');
-  if ((pats.sleep_mentions || 0) >= 4)
-    msgs.push('Sleep appears a lot. Something worth paying attention to.');
-  if ((pats.settlemate_mentions || 0) >= 5)
-    msgs.push('SettleMate is on your mind constantly. You care about this deeply.');
+  // Energy vs exercise correlation
+  if ((pats.exercise_mentions || 0) >= 2 && (pats.high_energy_mentions || 0) >= 2)
+    msgs.push('Every time exercise comes up, so does energy. That pattern is real.');
+
+  // Sleep is a recurring theme
+  if ((pats.sleep_mentions || 0) >= 3)
+    msgs.push('Sleep keeps coming up. It might be the lever everything else depends on.');
+
+  // Phone / procrastination
+  if ((pats.procrastination_mentions || 0) >= 3)
+    msgs.push('Distraction has come up ' + pats.procrastination_mentions + ' times. It\'s not a willpower problem.');
+
+  // Job search confidence
+  if ((pats.job_search_mentions || 0) >= 2)
+    msgs.push('Job search is on your mind. The confidence gap is real — so is the solution.');
+
+  // SettleMate
+  if ((pats.settlemate_mentions || 0) >= 4)
+    msgs.push('SettleMate keeps surfacing. You clearly haven\'t let go of it. Good.');
+
+  // Mood trend — check last 7 days
+  const last7 = last7Dates().map(ds => checkins.find(c => c.date === ds)).filter(Boolean);
+  const lowDays = last7.filter(c => c.mood === 'low').length;
+  const goodDays = last7.filter(c => c.mood === 'good').length;
+  if (lowDays >= 3) msgs.push(`${lowDays} of the last 7 days were low. Something is worth looking at.`);
+  if (goodDays >= 4) msgs.push(`${goodDays} good days this week. Something is working — notice it.`);
+
+  // Reading
   if ((pats.reading_mentions || 0) >= 2)
-    msgs.push('Reading keeps coming up. Maybe it\'s closer to returning than you think.');
+    msgs.push('Reading keeps coming up. Maybe it\'s closer than you think.');
 
-  el.textContent = msgs.length ? msgs[0] : 'Come back after a few sessions. Ro is learning your patterns.';
+  el.textContent = msgs.length
+    ? msgs[Math.floor(Math.random() * Math.min(msgs.length, 3))]  // rotate insights
+    : 'Come back after a few sessions. Ro is learning your patterns.';
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1555,9 +2339,43 @@ function openSettings() {
   document.getElementById('s-api').value    = getKey();
   document.getElementById('s-rules').value  = LS.raw('ro_custom_rules');
   document.getElementById('s-gcal-id').value = LS.raw('ro_gcal_id');
+  document.getElementById('s-tavily').value  = LS.raw('ro_tavily_key') || '';
   if (LS.raw('ro_gcal_connected') === '1' && gcalToken) {
     document.getElementById('gcal-status').textContent = '✓ Connected';
   }
+
+  // Identity section status
+  const ids = LS.get('ro_identity', []);
+  const full = ids.find(x => x.type === 'full' || x.type === 'monthly');
+  const statusEl = document.getElementById('s-identity-status');
+  const monthlyBtn = document.getElementById('s-monthly-btn');
+  if (full) {
+    statusEl.textContent = `Last updated: ${fmtDate(full.completed)}. Ro knows you deeply.`;
+    const daysSince = Math.floor((Date.now() - new Date(full.completed)) / 86400000);
+    monthlyBtn.disabled = daysSince < 25;
+    monthlyBtn.style.opacity = daysSince < 25 ? '0.4' : '1';
+    monthlyBtn.title = daysSince < 25 ? `Next update available in ${25 - daysSince} days` : '';
+    document.querySelector('#s-identity-status + .s-save').textContent = 'Redo Deep Onboarding';
+  } else {
+    statusEl.textContent = 'Not started yet. This is how Ro truly gets to know you.';
+    monthlyBtn.disabled = true;
+    monthlyBtn.style.opacity = '0.4';
+  }
+
+  // Reminder status
+  const reminderTimeEl = document.getElementById('s-reminder-time');
+  if (reminderTimeEl) reminderTimeEl.value = LS.raw('ro_reminder_time') || '09:00';
+  updateReminderStatus();
+
+  // Weekly insight status
+  const weekly = LS.get('ro_weekly', []);
+  const weeklyEl = document.getElementById('s-weekly-status');
+  if (weeklyEl) {
+    weeklyEl.textContent = weekly.length
+      ? `Last generated: ${fmtDate(weekly[weekly.length - 1].date)}`
+      : 'Not generated yet — needs a few sessions of data first.';
+  }
+
   document.getElementById('settingsBg').classList.add('on');
 }
 
@@ -1570,9 +2388,58 @@ function saveRules() {
   closeSettings();
 }
 
+function exportMemory() {
+  const allKeys = [...KEYS, 'ro_conv_state', 'ro_onboard_progress'];
+  const snapshot = {};
+  allKeys.forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v) snapshot[k] = v; // store raw JSON strings
+  });
+  snapshot._exported = new Date().toISOString();
+  snapshot._version  = 1;
+
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `ro-memory-${dateStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Memory exported — save that file somewhere safe');
+}
+
+function importMemory() {
+  if (!confirm('This will overwrite your current Ro memory with the imported file. Continue?')) return;
+
+  const input   = document.createElement('input');
+  input.type    = 'file';
+  input.accept  = 'application/json';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    try {
+      const text     = await file.text();
+      const snapshot = JSON.parse(text);
+      if (!snapshot._version) throw new Error('Not a valid Ro memory file');
+
+      Object.entries(snapshot).forEach(([k, v]) => {
+        if (k.startsWith('_')) return; // skip metadata
+        localStorage.setItem(k, v);
+      });
+
+      toast('Memory restored — reloading Ro…');
+      setTimeout(() => location.reload(), 1200);
+    } catch (e) {
+      toast(`Import failed: ${e.message}`);
+    }
+  };
+  input.click();
+}
+
 function clearAll() {
   if (!confirm('This will erase everything Ro has learned about you. Are you sure?')) return;
   KEYS.forEach(k => LS.del(k));
+  LS.del('ro_conv_state');
   Object.keys(convs).forEach(m => convs[m] = []);
   document.getElementById('chat').innerHTML = '';
   moodNow = '';
@@ -1600,70 +2467,309 @@ function fmtDate(ds) {
 }
 
 // ───────────────────────────────────────────────────────────
-// VOICE INPUT (Web Speech API — Chrome / Edge)
+// VOICE — single tap mic (existing button in chat input)
 // ───────────────────────────────────────────────────────────
 let recognition  = null;
 let micListening = false;
+let voiceLang    = 'en-US';
 
-function initSpeech() {
+function initSpeech(onResult, onEnd, onError) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
-  const r = new SR();
-  r.continuous      = false;
-  r.interimResults  = true;
-  r.lang            = 'en-US'; // Hebrew also works: 'he-IL'
-
-  r.onstart = () => {
-    micListening = true;
-    document.getElementById('micBtn').classList.add('listening');
-    document.getElementById('msgInp').placeholder = 'Listening…';
-  };
-
-  r.onresult = e => {
-    const inp  = document.getElementById('msgInp');
-    const transcript = Array.from(e.results)
-      .map(r => r[0].transcript).join('');
-    inp.value = transcript;
-    grow(inp);
-  };
-
-  r.onend = () => {
-    micListening = false;
-    document.getElementById('micBtn').classList.remove('listening');
-    document.getElementById('msgInp').placeholder = 'Say anything…';
-    // Auto-send if there's content
-    const txt = document.getElementById('msgInp').value.trim();
-    if (txt) sendMsg();
-  };
-
-  r.onerror = err => {
-    micListening = false;
-    document.getElementById('micBtn').classList.remove('listening');
-    document.getElementById('msgInp').placeholder = 'Say anything…';
-    if (err.error === 'not-allowed') {
-      toast('Microphone access denied — allow it in browser settings');
-    } else if (err.error !== 'no-speech') {
-      toast(`Voice error: ${err.error}`);
-    }
-  };
-
+  const r          = new SR();
+  r.continuous     = false;
+  r.interimResults = true;
+  r.lang           = voiceLang;
+  r.onresult       = onResult;
+  r.onend          = onEnd;
+  r.onerror        = onError;
   return r;
 }
 
 function toggleMic() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    toast('Voice input only works in Chrome or Edge');
-    return;
-  }
-  if (micListening) {
-    recognition && recognition.stop();
-    return;
-  }
-  recognition = initSpeech();
+  if (!SR) { toast('Voice input only works in Chrome or Edge'); return; }
+
+  if (micListening) { recognition && recognition.stop(); return; }
+
+  recognition = initSpeech(
+    (e) => {
+      const inp = document.getElementById('msgInp');
+      inp.value = Array.from(e.results).map(r => r[0].transcript).join('');
+      grow(inp);
+    },
+    () => {
+      micListening = false;
+      document.getElementById('micBtn').classList.remove('listening');
+      document.getElementById('msgInp').placeholder = 'Say anything…';
+      const txt = document.getElementById('msgInp').value.trim();
+      if (txt) sendMsg();
+    },
+    (err) => {
+      micListening = false;
+      document.getElementById('micBtn').classList.remove('listening');
+      document.getElementById('msgInp').placeholder = 'Say anything…';
+      if (err.error === 'not-allowed') toast('Microphone access denied — check browser settings');
+      else if (err.error !== 'no-speech') toast(`Voice error: ${err.error}`);
+    }
+  );
   if (!recognition) return;
-  try { recognition.start(); }
-  catch { toast('Could not start microphone'); }
+  micListening = true;
+  document.getElementById('micBtn').classList.add('listening');
+  document.getElementById('msgInp').placeholder = 'Listening…';
+  try { recognition.start(); } catch { toast('Could not start microphone'); }
+}
+
+// ───────────────────────────────────────────────────────────
+// VOICE CHAT — Gemini Live API (WebSocket, audio-in / text-out)
+// Mic audio streamed as PCM → gemini-3.1-flash-live-preview
+// Response text spoken via browser TTS
+// ───────────────────────────────────────────────────────────
+let voiceChatActive = false;
+let voiceSpeaking   = false;
+let liveWs          = null;
+let liveAudioCtx    = null;
+let liveStream      = null;
+let liveProcessor   = null;
+let liveReady       = false;
+let liveAccumText   = '';
+
+function toggleVoiceChat() {
+  if (voiceChatActive) { stopVoiceChatLive(); return; }
+  if (!navigator.mediaDevices?.getUserMedia) { toast('Microphone not available in this browser'); return; }
+  if (!window.speechSynthesis) { toast('Text-to-speech not supported in this browser'); return; }
+  startVoiceChatLive();
+}
+
+// Keep stopVoiceChat as an alias so ESC key handler still works
+function stopVoiceChat() { stopVoiceChatLive(); }
+
+async function startVoiceChatLive() {
+  const apiKey = getKey();
+  if (!apiKey) { toast('No API key — check Settings'); return; }
+
+  voiceChatActive = true;
+  document.getElementById('voiceOverlay').classList.add('on');
+  document.getElementById('voiceChatBtn').classList.add('active');
+  document.getElementById('voiceChatBtn').textContent = '✕ End voice chat';
+  setVoiceOrbState('connecting');
+
+  const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+
+  try {
+    liveWs = new WebSocket(wsUrl);
+  } catch (e) {
+    toast('Could not open voice connection');
+    stopVoiceChatLive();
+    return;
+  }
+
+  liveWs.onopen = () => {
+    const system = buildSystem() + '\n\nThis is a real-time VOICE conversation. Keep every response to 1-3 sentences. Speak naturally — no bullet points, no markdown, no lists. Warm and direct.';
+    liveWs.send(JSON.stringify({
+      setup: {
+        model: 'models/gemini-3.1-flash-live-preview',
+        system_instruction: { parts: [{ text: system }] },
+        generation_config: {
+          response_modalities: ['TEXT'],
+          thinking_config: { thinking_level: 'minimal' }
+        }
+      }
+    }));
+  };
+
+  liveWs.onmessage = handleLiveMessage;
+
+  liveWs.onerror = (e) => {
+    console.error('Live WS error:', e);
+    toast('Voice connection error — try again');
+    stopVoiceChatLive();
+  };
+
+  liveWs.onclose = () => {
+    if (voiceChatActive) stopVoiceChatLive();
+  };
+
+  // Start mic capture
+  try {
+    liveStream   = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    liveAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    const source = liveAudioCtx.createMediaStreamSource(liveStream);
+    liveProcessor = liveAudioCtx.createScriptProcessor(4096, 1, 1);
+
+    liveProcessor.onaudioprocess = (e) => {
+      if (!liveReady || !liveWs || liveWs.readyState !== WebSocket.OPEN || voiceSpeaking) return;
+      const f32 = e.inputBuffer.getChannelData(0);
+      const i16 = new Int16Array(f32.length);
+      for (let i = 0; i < f32.length; i++) {
+        i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i] * 32767)));
+      }
+      // btoa on raw bytes
+      let binary = '';
+      const bytes = new Uint8Array(i16.buffer);
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+      liveWs.send(JSON.stringify({
+        realtime_input: { media_chunks: [{ mime_type: 'audio/pcm;rate=16000', data: base64 }] }
+      }));
+    };
+
+    source.connect(liveProcessor);
+    liveProcessor.connect(liveAudioCtx.destination);
+
+  } catch (e) {
+    console.error('Mic error:', e);
+    toast('Microphone access denied');
+    stopVoiceChatLive();
+  }
+}
+
+function handleLiveMessage(event) {
+  let msg;
+  try { msg = JSON.parse(event.data); } catch { return; }
+
+  if (msg.setupComplete) {
+    liveReady     = true;
+    liveAccumText = '';
+    setVoiceOrbState('listening');
+    document.getElementById('voiceTranscript').textContent = 'Speak to Ro…';
+    return;
+  }
+
+  if (msg.server_content) {
+    const parts = msg.server_content?.model_turn?.parts || [];
+    parts.forEach(p => { if (p.text) liveAccumText += p.text; });
+
+    // Show live transcript while building
+    if (liveAccumText) {
+      document.getElementById('voiceTranscript').textContent = liveAccumText;
+    }
+
+    if (msg.server_content.turn_complete && liveAccumText.trim()) {
+      const reply = liveAccumText.trim();
+      liveAccumText = '';
+
+      // Log what Nachum said as a user message (best-effort from transcript)
+      const transcript = document.getElementById('voiceTranscript').textContent;
+
+      // Add Ro's reply to chat + memory
+      addMsg('ro', reply);
+      convs[mode].push({ role: 'assistant', content: reply });
+      saveConvState();
+      scanForData(reply, 'ro');
+      maybeAutoSummarize();
+      refreshDrawer();
+
+      // Speak aloud
+      speakRoReply(reply);
+    }
+  }
+}
+
+function stopVoiceChatLive() {
+  voiceChatActive = false;
+  liveReady       = false;
+  liveAccumText   = '';
+  voiceSpeaking   = false;
+
+  if (liveWs)        { try { liveWs.close(); }          catch {} liveWs = null; }
+  if (liveProcessor) { try { liveProcessor.disconnect(); } catch {} liveProcessor = null; }
+  if (liveAudioCtx)  { try { liveAudioCtx.close(); }    catch {} liveAudioCtx = null; }
+  if (liveStream)    { liveStream.getTracks().forEach(t => t.stop()); liveStream = null; }
+  window.speechSynthesis.cancel();
+
+  document.getElementById('voiceOverlay').classList.remove('on');
+  document.getElementById('voiceChatBtn').classList.remove('active');
+  document.getElementById('voiceChatBtn').innerHTML = '🎙 Voice chat';
+  setVoiceOrbState('idle');
+  document.getElementById('voiceTranscript').textContent = '';
+}
+
+function setVoiceOrbState(state) {
+  const orb    = document.getElementById('voiceOrb');
+  const status = document.getElementById('voiceStatus');
+  orb.className    = 'voice-orb';
+  status.className = 'voice-status';
+
+  const map = {
+    idle:       { icon: '🎙', text: 'Tap to start voice chat', orbClass: '',          statusClass: '' },
+    connecting: { icon: '🎙', text: 'Connecting…',             orbClass: '',          statusClass: '' },
+    listening:  { icon: '🎙', text: 'Listening…',              orbClass: 'listening', statusClass: 'listening' },
+    thinking:   { icon: '💭', text: 'Ro is thinking…',         orbClass: '',          statusClass: '' },
+    speaking:   { icon: '🔊', text: 'Ro is speaking…',         orbClass: 'speaking',  statusClass: 'speaking' }
+  };
+  const s = map[state] || map.idle;
+  orb.textContent = s.icon;
+  status.textContent = s.text;
+  if (s.orbClass)    orb.classList.add(s.orbClass);
+  if (s.statusClass) status.classList.add(s.statusClass);
+}
+
+function speakRoReply(text) {
+  if (!voiceChatActive) return;
+
+  setVoiceOrbState('speaking');
+  voiceSpeaking = true;
+
+  const clean = text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '')
+    .replace(/\n+/g, ' ')
+    .trim();
+
+  const utt  = new SpeechSynthesisUtterance(clean);
+  utt.lang   = voiceLang;
+  utt.rate   = 0.95;
+  utt.pitch  = 1.0;
+  utt.volume = 1.0;
+
+  const voices = window.speechSynthesis.getVoices();
+  if (voiceLang === 'he-IL') {
+    const heVoice = voices.find(v => v.lang.startsWith('he'));
+    if (heVoice) utt.voice = heVoice;
+  } else {
+    const preferred = voices.find(v =>
+      v.lang === 'en-US' && (v.name.includes('Samantha') || v.name.includes('Google') || v.name.includes('Natural'))
+    ) || voices.find(v => v.lang === 'en-US');
+    if (preferred) utt.voice = preferred;
+  }
+
+  utt.onend = () => {
+    voiceSpeaking = false;
+    if (voiceChatActive) {
+      setVoiceOrbState('listening');
+      document.getElementById('voiceTranscript').textContent = 'Speak to Ro…';
+    }
+  };
+  utt.onerror = () => {
+    voiceSpeaking = false;
+    if (voiceChatActive) {
+      setVoiceOrbState('listening');
+      document.getElementById('voiceTranscript').textContent = 'Speak to Ro…';
+    }
+  };
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utt);
+}
+
+function orbTap() {
+  if (voiceSpeaking) {
+    // Interrupt Ro speaking — resume listening immediately
+    window.speechSynthesis.cancel();
+    voiceSpeaking = false;
+    setVoiceOrbState('listening');
+    document.getElementById('voiceTranscript').textContent = 'Speak to Ro…';
+  }
+  // Live API is always streaming — no manual trigger needed
+}
+
+function setVoiceLang(lang) {
+  voiceLang = lang;
+  document.getElementById('voiceLangEn').classList.toggle('on', lang === 'en-US');
+  document.getElementById('voiceLangHe').classList.toggle('on', lang === 'he-IL');
+  toast(lang === 'he-IL' ? 'עכשיו בעברית' : 'Switched to English');
 }
 
 // ───────────────────────────────────────────────────────────
@@ -1671,9 +2777,47 @@ function toggleMic() {
 // ───────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
+    if (voiceChatActive) { stopVoiceChat(); return; }
     closeSettings();
     closeWin();
     if (document.getElementById('drawer').classList.contains('on')) toggleDrawer();
+  }
+});
+
+// Save everything when user leaves or hides the tab
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') saveConvState();
+});
+window.addEventListener('beforeunload', saveConvState);
+
+// ── MOBILE KEYBOARD FIX ────────────────────────────────────
+// When the keyboard opens on Android, the viewport shrinks.
+// We set a --vh CSS variable to the real visible height,
+// and scroll the chat to bottom so the input stays visible.
+function setVH() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+
+setVH();
+window.addEventListener('resize', () => {
+  setVH();
+  // Scroll chat to bottom after keyboard opens/closes
+  const chat = document.getElementById('chat');
+  if (chat) setTimeout(() => { chat.scrollTop = chat.scrollHeight; }, 100);
+});
+
+// On mobile, scroll chat to bottom when input is focused (keyboard about to open)
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('msgInp');
+  if (inp) {
+    inp.addEventListener('focus', () => {
+      setTimeout(() => {
+        const chat = document.getElementById('chat');
+        if (chat) chat.scrollTop = chat.scrollHeight;
+        inp.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 350); // wait for keyboard animation
+    });
   }
 });
 
@@ -1821,6 +2965,449 @@ function showInstallTip() {
   } else {
     toast('Open Ro from a hosted URL in Chrome/Safari, then use "Add to Home Screen"');
   }
+}
+
+// ───────────────────────────────────────────────────────────
+// MORNING REMINDER — browser Push Notifications
+// ───────────────────────────────────────────────────────────
+let reminderInterval = null;
+
+async function saveReminder() {
+  if (!('Notification' in window)) {
+    toast('Notifications not supported in this browser');
+    return;
+  }
+
+  const time = document.getElementById('s-reminder-time').value || '09:00';
+
+  if (Notification.permission === 'denied') {
+    toast('Notifications blocked — enable them in browser settings');
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    toast('Notification permission denied');
+    return;
+  }
+
+  LS.rawSet('ro_reminder_time', time);
+  LS.rawSet('ro_reminder_on', '1');
+  startReminderLoop();
+  toast(`Reminder set for ${time} every day`);
+  updateReminderStatus();
+  closeSettings();
+}
+
+function disableReminder() {
+  LS.rawSet('ro_reminder_on', '0');
+  if (reminderInterval) { clearInterval(reminderInterval); reminderInterval = null; }
+  updateReminderStatus();
+  toast('Reminder disabled');
+}
+
+function startReminderLoop() {
+  if (reminderInterval) clearInterval(reminderInterval);
+  reminderInterval = setInterval(checkReminderFire, 60000); // check every minute
+  checkReminderFire(); // check immediately on enable
+}
+
+function checkReminderFire() {
+  if (LS.raw('ro_reminder_on') !== '1') return;
+  const target = LS.raw('ro_reminder_time') || '09:00';
+  const now    = new Date();
+  const hhmm   = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  if (hhmm !== target) return;
+
+  // Don't fire twice on the same day
+  const lastFired = LS.raw('ro_reminder_last');
+  if (lastFired === dateStr()) return;
+  LS.rawSet('ro_reminder_last', dateStr());
+
+  if (Notification.permission === 'granted') {
+    const n = new Notification('Ro', {
+      body: 'Your morning check-in is waiting. How are you starting today?',
+      icon: 'icon.svg',
+      badge: 'icon.svg'
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+  }
+}
+
+function updateReminderStatus() {
+  const el = document.getElementById('s-reminder-status');
+  if (!el) return;
+  const on   = LS.raw('ro_reminder_on') === '1';
+  const time = LS.raw('ro_reminder_time') || '09:00';
+  if (on) {
+    el.textContent = `Active — fires at ${time} daily`;
+    el.style.color = 'var(--teal)';
+    document.getElementById('s-reminder-btn').textContent = 'Update Time';
+  } else {
+    el.textContent = 'Not enabled';
+    el.style.color = 'var(--dim)';
+    document.getElementById('s-reminder-btn').textContent = 'Enable Reminder';
+  }
+}
+
+// ───────────────────────────────────────────────────────────
+// ONBOARDING ENGINE
+// ───────────────────────────────────────────────────────────
+
+const FULL_TOPICS = [
+  {
+    name: 'Right Now',
+    seed: `You're opening a deep onboarding conversation with Nachum. This is the first time you're really getting to know him at depth. Start warm, real, and unhurried. Tell him in one sentence what this session is — not a form, just a real conversation so you can actually know him. Then ask him your first question naturally: what does a typical day look like for him right now, from when he wakes up to when he sleeps? One question only. Keep it conversational.`
+  },
+  {
+    name: 'Work & Money',
+    seed: `Move naturally to the topic of work and money. You already know he's building SettleMate and job searching. Go deeper — ask what he's actually tried in the job search and what happened. Then follow up on the financial picture — not just the debt number, but how it actually feels. Ask what SettleMate needs most right now, what the real blocker is. One question at a time. Acknowledge what he says before moving on.`
+  },
+  {
+    name: 'Inner Life & Spirit',
+    seed: `Now go inward. Ask him what "creating your own reality" actually looks like in practice for him — not the idea, the practice. Then ask about spiritual life — any prayer, meditation, gratitude rituals. Then ask about being secular in a religious family and how that actually sits with him day to day. Ask what his best real day ever looked like. One question at a time, real and unhurried.`
+  },
+  {
+    name: 'Relationships & Romance',
+    seed: `Now ask about his people and love life. Who else matters beyond Sahar and Peretz? Then go to the romantic reality — his honest theory about why a meaningful relationship hasn't happened yet. What does love mean to him in practice, day to day. What kind of person does he actually want to build a life with — not physical type, but values, energy. Be gentle and direct. This matters to him.`
+  },
+  {
+    name: 'Health & Body',
+    seed: `Ask about his physical reality. What does his sleep actually look like — time, quality, the phone thing before sleep. His relationship with his body beyond football once a week. Any patterns he's noticed with food and how he feels. Keep it curiosity-based, not clinical.`
+  },
+  {
+    name: 'Fears & Shadows',
+    seed: `Go into the harder territory. Ask what he's most afraid of, if he's honest. Then ask what he believes about himself that he knows isn't true but still feels true. Then ask what the hardest thing he's been through was and what it did to him. Hold this space carefully. Don't rush. Don't fix. Just be present with whatever comes up.`
+  },
+  {
+    name: 'The Best Version',
+    seed: `Close with the best version of him. Ask what he's genuinely proud of — not what he thinks he should be proud of. Then ask what the best version of him looks like — not goals, but who he is, how he moves, how he feels. Finally ask: what's one reframe or belief he wants you to hold for him and read back when he's low? This is the part that matters most. End warmly.`
+  }
+];
+
+const MONTHLY_TOPICS = [
+  {
+    name: "What's Changed",
+    seed: `This is a monthly update session. You already know Nachum deeply from the full onboarding. Your job is to update your picture of him — what's different this month. Ask him: what's changed since last month — work, life, energy? One question, real and open.`
+  },
+  {
+    name: 'Relationships',
+    seed: `Ask what's new in his relationships and romantic life since last time. Anything shifted? Anyone new? How are Sahar, Peretz, his mother? Keep it natural — you already know the history.`
+  },
+  {
+    name: 'Insights & Reframes',
+    seed: `Ask what reframes or insights have stuck with him this past month. Anything he sees differently? Any belief he wants to add or update?`
+  },
+  {
+    name: '90-Day Vision',
+    seed: `Close with the vision. Ask him: what does the next 90 days look like if things go well — specifically? What does he want to be true? This is for his manifestation architecture — hold it seriously.`
+  }
+];
+
+// Onboarding state
+let obActive     = false;
+let obType       = 'full';   // 'full' | 'monthly'
+let obTopics     = [];
+let obTopicIdx   = 0;
+let obMessages   = [];       // full transcript
+let obLoading    = false;
+
+function checkNeedsOnboarding() {
+  const ids = LS.get('ro_identity', []);
+  // Needs onboarding if no full or monthly entry exists
+  return !ids.find(x => x.type === 'full' || x.type === 'monthly');
+}
+
+function openOnboarding(type) {
+  closeSettings();
+  setTimeout(() => startOnboarding(type), 300);
+}
+
+function startOnboarding(type) {
+  obType     = type;
+  obTopics   = type === 'monthly' ? MONTHLY_TOPICS : FULL_TOPICS;
+  obTopicIdx = 0;
+  obMessages = [];
+  obActive   = true;
+
+  // Restore in-progress session if any
+  const saved = LS.get('ro_onboard_progress', null);
+  if (saved && saved.type === type) {
+    obTopicIdx = saved.topicIdx;
+    obMessages = saved.messages || [];
+  }
+
+  document.getElementById('onboardOverlay').classList.add('on');
+
+  // Replay any saved messages
+  const chat = document.getElementById('onboardChat');
+  chat.innerHTML = '';
+  obMessages.forEach(m => addOnboardMsg(m.role, m.content));
+
+  updateOnboardHeader();
+
+  // If resuming, don't re-ask the current topic opener — just wait
+  if (obMessages.length === 0) {
+    setTimeout(() => onboardAskTopic(0), 500);
+  }
+}
+
+function skipOnboarding() {
+  LS.del('ro_onboard_progress');
+  document.getElementById('onboardOverlay').classList.remove('on');
+  obActive = false;
+  const chat = document.getElementById('chat');
+  if (convs['now'].length > 0) {
+    convs['now'].filter(x => !x.hidden).forEach(x =>
+      addMsg(x.role === 'user' ? 'user' : 'ro', x.content)
+    );
+    reEntryGreeting();
+  } else {
+    setTimeout(openingGreeting, 300);
+  }
+}
+
+function updateOnboardHeader() {
+  const total   = obTopics.length;
+  const current = Math.min(obTopicIdx + 1, total);
+  const pct     = ((obTopicIdx) / total) * 100;
+  document.getElementById('onboardProgressFill').style.width = pct + '%';
+  document.getElementById('onboardTopicLbl').textContent =
+    obType === 'monthly' ? `Monthly update · ${current} of ${total}` : `Getting to know you · ${current} of ${total}`;
+  document.getElementById('onboardTopicName').textContent = obTopics[obTopicIdx]?.name || '✓ Done';
+}
+
+function addOnboardMsg(role, content) {
+  const chat = document.getElementById('onboardChat');
+  const w    = document.createElement('div');
+  w.className = `msg-wrap ${role === 'user' ? 'user' : 'ro'}`;
+  if (role !== 'user') {
+    w.innerHTML = `<div class="avatar">Ro</div>
+      <div class="msg-body">
+        <div class="bubble">${fmt(content)}</div>
+        <div class="msg-time">${nowTime()}</div>
+      </div>`;
+  } else {
+    w.innerHTML = `<div class="msg-body">
+        <div class="bubble">${fmt(content)}</div>
+        <div class="msg-time">${nowTime()}</div>
+      </div>`;
+  }
+  chat.appendChild(w);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function appendOnboardTyping() {
+  const chat = document.getElementById('onboardChat');
+  const w    = document.createElement('div');
+  w.className = 'msg-wrap ro';
+  w.id = 'obTyping';
+  w.innerHTML = `<div class="avatar">Ro</div>
+    <div class="msg-body">
+      <div class="bubble">
+        <div class="typing-dots">
+          <div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>
+        </div>
+      </div>
+    </div>`;
+  chat.appendChild(w);
+  chat.scrollTop = chat.scrollHeight;
+  return w;
+}
+
+async function onboardAskTopic(topicIdx) {
+  if (topicIdx >= obTopics.length) { onboardComplete(); return; }
+  obTopicIdx = topicIdx;
+  updateOnboardHeader();
+
+  const topic  = obTopics[topicIdx];
+  const typing = appendOnboardTyping();
+  obLoading    = true;
+  document.getElementById('onboardSendBtn').disabled = true;
+
+  const systemPrompt = `You are Ro — conducting a deep personal onboarding session with Nachum.
+Your job: ask questions naturally, one at a time. Listen. Acknowledge briefly (1 sentence max). Then ask the next question when the time feels right.
+When a topic feels complete (you've heard enough to understand this area of his life), write TOPIC_COMPLETE on its own line at the end of your message. This signals the system to advance — do NOT explain this to Nachum, do NOT say "next topic", just include it invisibly.
+Never list multiple questions. Never rush. Never lecture. Speak simply, like a real person.
+Current topic: ${topic.name}`;
+
+  try {
+    const apiMsgsForOb = obMessages.map(({ role, content }) => ({ role, content }));
+    // Add the topic instruction as a hidden user message
+    apiMsgsForOb.push({ role: 'user', content: topic.seed });
+
+    const reply0 = await geminiCall(systemPrompt, apiMsgsForOb, 300);
+
+    document.getElementById('obTyping')?.remove();
+
+    let reply = reply0 || '';
+
+    // Check for topic complete signal
+    const topicDone = reply.includes('TOPIC_COMPLETE');
+    reply = reply.replace('TOPIC_COMPLETE', '').trim();
+
+    addOnboardMsg('ro', reply);
+    obMessages.push({ role: 'assistant', content: reply });
+    saveOnboardProgress();
+
+    if (topicDone) {
+      // Brief pause then move to next topic
+      setTimeout(() => onboardAskTopic(obTopicIdx + 1), 1200);
+    }
+
+  } catch (e) {
+    document.getElementById('obTyping')?.remove();
+    addOnboardMsg('ro', `Something went wrong — ${e.message}. Try again.`);
+    console.error('Onboard error:', e);
+  }
+
+  obLoading = false;
+  document.getElementById('onboardSendBtn').disabled = false;
+}
+
+async function onboardSend() {
+  const inp = document.getElementById('onboardInp');
+  const txt = inp.value.trim();
+  if (!txt || obLoading) return;
+
+  inp.value = ''; grow(inp);
+  addOnboardMsg('user', txt);
+  obMessages.push({ role: 'user', content: txt });
+  saveOnboardProgress();
+
+  // Ask Ro to respond and decide if topic is complete
+  const topic      = obTopics[obTopicIdx];
+  const typing     = appendOnboardTyping();
+  obLoading        = true;
+  document.getElementById('onboardSendBtn').disabled = true;
+
+  const systemPrompt = `You are Ro — conducting a deep personal onboarding session with Nachum.
+Current topic: ${topic.name}
+Your job: respond to what he just said with genuine acknowledgment (1-2 sentences, human and warm). Then either ask a natural follow-up question if the topic needs more depth, OR if you feel you've understood this topic well enough, write TOPIC_COMPLETE on its own line at the end of your message to signal you're ready to move on.
+Never list multiple questions. Never lecture. Never rush. Speak simply.`;
+
+  try {
+    const reply0 = await geminiCall(systemPrompt, obMessages.map(({ role, content }) => ({ role, content })), 300);
+
+    document.getElementById('obTyping')?.remove();
+
+    let reply = reply0 || '';
+
+    const topicDone = reply.includes('TOPIC_COMPLETE');
+    reply = reply.replace('TOPIC_COMPLETE', '').trim();
+
+    addOnboardMsg('ro', reply);
+    obMessages.push({ role: 'assistant', content: reply });
+    saveOnboardProgress();
+
+    if (topicDone) {
+      setTimeout(() => onboardAskTopic(obTopicIdx + 1), 1200);
+    }
+
+  } catch (e) {
+    document.getElementById('obTyping')?.remove();
+    addOnboardMsg('ro', `Something went wrong — ${e.message}. Try typing your answer again.`);
+    console.error('Onboard send error:', e);
+  }
+
+  obLoading = false;
+  document.getElementById('onboardSendBtn').disabled = false;
+}
+
+function saveOnboardProgress() {
+  LS.set('ro_onboard_progress', {
+    type: obType,
+    topicIdx: obTopicIdx,
+    messages: obMessages
+  });
+}
+
+async function onboardComplete() {
+  updateOnboardHeader();
+  // Show completion message while synthesizing
+  const typing = appendOnboardTyping();
+
+  const transcript = obMessages
+    .filter(m => !m.content.includes('TOPIC_COMPLETE'))
+    .map(m => `${m.role === 'user' ? 'Nachum' : 'Ro'}: ${m.content}`)
+    .join('\n\n');
+
+  const synthesisPrompt = obType === 'monthly'
+    ? `Based on this monthly update conversation, write a 200-300 word update to Ro's understanding of Nachum. Write in 3rd person as if briefing yourself. Focus on what has CHANGED since last time — new developments, shifts in mindset, new context. Be specific and personal. Start with "Monthly update —"\n\nConversation:\n${transcript}`
+    : `Based on this deep onboarding conversation, write a rich 400-600 word identity document for Ro about Nachum — written in 3rd person as if briefing yourself about a person you care deeply about. Include: his daily reality right now, his relationship with work and money, his inner life and spirituality, his romantic situation and what he truly wants, his health, his fears, his shadows, and most importantly — who he is at his best. Be specific, warm, and truthful. This document will be read before every conversation with him.\n\nConversation:\n${transcript}`;
+
+  try {
+    const identityDoc = await geminiCall(null, [{ role: 'user', content: synthesisPrompt }], 800);
+
+    document.getElementById('obTyping')?.remove();
+
+    // Store the identity entry
+    const ids = LS.get('ro_identity', []);
+    ids.push({
+      completed: dateStr(),
+      type: obType,
+      version: ids.filter(x => x.type === obType).length + 1,
+      document: identityDoc,
+      rawAnswers: obMessages
+    });
+    LS.set('ro_identity', ids);
+    LS.del('ro_onboard_progress');
+
+    // Show completion in onboarding chat
+    const closingMsg = obType === 'monthly'
+      ? `That's everything I needed. I've updated my understanding of where you are right now. Every conversation from here carries this.\n\nReady when you are.`
+      : `That's everything. I have what I need to actually know you — not just the facts, but who you are.\n\nEvery conversation from here is built on this. Let's go.`;
+
+    addOnboardMsg('ro', closingMsg);
+
+    setTimeout(() => {
+      document.getElementById('onboardOverlay').classList.remove('on');
+      obActive = false;
+      refreshDrawer();
+
+      // Boot into main app properly
+      const chat = document.getElementById('chat');
+      chat.innerHTML = '';
+      convs['now'] = [];
+      setTimeout(openingGreeting, 500);
+    }, 2800);
+
+  } catch (e) {
+    document.getElementById('obTyping')?.remove();
+    addOnboardMsg('ro', `Almost there — had trouble saving. ${e.message}. Try one more message and I'll try again.`);
+    console.error('Synthesis error:', e);
+  }
+}
+
+// ── IDENTITY DRAWER ───────────────────────────────────────
+let identityExpanded = false;
+
+function renderIdentityDrawer() {
+  const ids     = LS.get('ro_identity', []);
+  const full    = ids.slice().reverse().find(x => x.type === 'full' || x.type === 'monthly');
+  const teaser  = document.getElementById('identityTeaser');
+  const expBtn  = document.getElementById('identityExpandBtn');
+
+  if (!full || !full.document) {
+    teaser.textContent = 'Not set yet — start your onboarding in Settings.';
+    expBtn.style.display = 'none';
+    return;
+  }
+
+  const doc = full.document;
+  if (identityExpanded) {
+    teaser.textContent = doc;
+    expBtn.textContent = 'show less';
+  } else {
+    teaser.textContent = doc.slice(0, 150) + (doc.length > 150 ? '…' : '');
+    expBtn.textContent = 'read more';
+  }
+  expBtn.style.display = 'block';
+}
+
+function toggleIdentityExpand() {
+  identityExpanded = !identityExpanded;
+  renderIdentityDrawer();
 }
 
 // ───────────────────────────────────────────────────────────
