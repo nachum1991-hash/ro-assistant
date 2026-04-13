@@ -1169,6 +1169,7 @@ async function boot() {
 
   startClock();
   refreshDrawer();
+  setupMicButton();
 
   // Restore Google Calendar UI if previously connected
   if (LS.raw('ro_gcal_connected') === '1') {
@@ -2641,6 +2642,107 @@ let recognition  = null;
 let micListening = false;
 let voiceLang    = 'en-US';
 
+// ── Mobile hold-to-record (MediaRecorder + Gemini transcription) ──
+let mediaRecorder   = null;
+let audioChunks     = [];
+let holdRecording   = false;
+const isMobile      = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+function setupMicButton() {
+  const btn = document.getElementById('micBtn');
+  if (!btn) return;
+  if (isMobile) {
+    btn.title = 'Hold to record';
+    btn.addEventListener('touchstart', e => { e.preventDefault(); startHoldRecord(); }, { passive: false });
+    btn.addEventListener('touchend',   e => { e.preventDefault(); stopHoldRecord();  }, { passive: false });
+    btn.addEventListener('touchcancel',e => { e.preventDefault(); cancelHoldRecord();}, { passive: false });
+  }
+}
+
+async function startHoldRecord() {
+  if (holdRecording) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks  = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.start(100);
+    holdRecording = true;
+    const btn = document.getElementById('micBtn');
+    btn.classList.add('listening');
+    document.getElementById('msgInp').placeholder = 'Recording… release to send';
+  } catch {
+    toast('Microphone access denied — check browser settings');
+  }
+}
+
+async function stopHoldRecord() {
+  if (!holdRecording || !mediaRecorder) return;
+  holdRecording = false;
+  const btn = document.getElementById('micBtn');
+  btn.classList.remove('listening');
+  document.getElementById('msgInp').placeholder = 'Transcribing…';
+
+  await new Promise(resolve => {
+    mediaRecorder.onstop = resolve;
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+  });
+
+  if (!audioChunks.length) {
+    document.getElementById('msgInp').placeholder = 'Say anything…';
+    return;
+  }
+
+  const blob   = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+  const base64 = await new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
+
+  const mimeType = blob.type.split(';')[0] || 'audio/webm';
+
+  try {
+    const apiKey = getKey();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [
+          { inlineData: { mimeType, data: base64 } },
+          { text: 'Transcribe this audio exactly. Return only the spoken words, nothing else.' }
+        ]}]
+      })
+    });
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (text) {
+      const inp = document.getElementById('msgInp');
+      inp.value = text;
+      grow(inp);
+      document.getElementById('msgInp').placeholder = 'Say anything…';
+      sendMsg();
+    } else {
+      document.getElementById('msgInp').placeholder = 'Say anything…';
+      toast('Could not transcribe — try again');
+    }
+  } catch {
+    document.getElementById('msgInp').placeholder = 'Say anything…';
+    toast('Transcription failed — try again');
+  }
+}
+
+function cancelHoldRecord() {
+  holdRecording = false;
+  if (mediaRecorder) {
+    try { mediaRecorder.stop(); mediaRecorder.stream.getTracks().forEach(t => t.stop()); } catch {}
+  }
+  document.getElementById('micBtn').classList.remove('listening');
+  document.getElementById('msgInp').placeholder = 'Say anything…';
+}
+
 function initSpeech(onResult, onEnd, onError) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return null;
@@ -2655,6 +2757,9 @@ function initSpeech(onResult, onEnd, onError) {
 }
 
 function toggleMic() {
+  // Mobile uses hold-to-record (touchstart/touchend) — tap does nothing
+  if (isMobile) return;
+
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('Voice input only works in Chrome or Edge'); return; }
 
