@@ -1134,6 +1134,13 @@ async function boot() {
   const saved = LS.get('ro_conv_state', {});
   Object.keys(convs).forEach(m => { if (saved[m]) convs[m] = saved[m]; });
 
+  // One-time migration: merge old now/think/build convos into action
+  ['now', 'think', 'build'].forEach(old => {
+    if (saved[old] && saved[old].length) {
+      convs['action'] = [...convs['action'], ...saved[old]];
+    }
+  });
+
   // Restore mood dot
   const checkins = LS.get('ro_checkins', []);
   if (checkins.length) {
@@ -3265,7 +3272,10 @@ let obLoading    = false;
 
 function checkNeedsOnboarding() {
   const ids = LS.get('ro_identity', []);
-  // Needs onboarding if no full or monthly entry exists
+  // Never force onboarding on existing users (has check-ins = been using app)
+  const checkins = LS.get('ro_checkins', []);
+  if (checkins.length > 0) return false;
+  // New users: needs onboarding if no full or monthly entry exists
   return !ids.find(x => x.type === 'full' || x.type === 'monthly');
 }
 
