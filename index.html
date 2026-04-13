@@ -1006,11 +1006,16 @@ const KEYS = ['ro_checkins','ro_wins','ro_gratitude','ro_patterns','ro_struggles
 // maxTok  — max output tokens
 // Returns the reply text, or null on error.
 // ───────────────────────────────────────────────────────────
+const GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b'
+];
+
 async function geminiCall(system, msgs, maxTok = 1024) {
   const apiKey = getKey();
   if (!apiKey) return null;
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
   // Convert internal role names: 'assistant' → 'model'
   const contents = msgs.map(({ role, content, filePart }) => {
@@ -1043,19 +1048,45 @@ async function geminiCall(system, msgs, maxTok = 1024) {
     body.systemInstruction = { parts: [{ text: system }] };
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  let lastError = null;
+  for (const model of GEMINI_MODELS) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error?.message || `HTTP ${res.status}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData.error?.message || `HTTP ${res.status}`;
+        // Only fallback on overload/server errors, not auth errors
+        if (res.status === 401 || res.status === 403) {
+          throw new Error(msg);
+        }
+        console.warn(`${model} failed (${res.status}): ${msg} — trying next model`);
+        lastError = new Error(msg);
+        continue;
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) { lastError = new Error('Empty response'); continue; }
+      if (model !== GEMINI_MODELS[0]) console.info(`Ro used fallback model: ${model}`);
+      return text;
+
+    } catch (e) {
+      // Auth errors — don't try other models
+      if (e.message?.includes('API_KEY') || e.message?.includes('401') || e.message?.includes('403')) {
+        throw e;
+      }
+      lastError = e;
+      console.warn(`${model} error: ${e.message} — trying next model`);
+    }
   }
 
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '…';
+  throw lastError || new Error('All Gemini models failed');
 }
 
 function defaultPeople() {
