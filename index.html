@@ -710,11 +710,10 @@ em { font-style: italic; color: var(--muted); }
 
   <!-- Mode Tabs -->
   <div class="tabs">
-    <button class="tab on"  onclick="switchMode('now',    this)">Now</button>
-    <button class="tab"     onclick="switchMode('think',  this)">Think</button>
-    <button class="tab"     onclick="switchMode('build',  this)">Build</button>
+    <button class="tab on"  onclick="switchMode('action', this)">Action</button>
     <button class="tab"     onclick="switchMode('reflect',this)">Reflect</button>
     <button class="tab"     onclick="switchMode('world',  this)">World</button>
+    <button class="tab"     onclick="switchMode('money',  this)">Money</button>
   </div>
 
   <!-- Pomodoro Bar -->
@@ -964,7 +963,7 @@ em { font-style: italic; color: var(--muted); }
 // ───────────────────────────────────────────────────────────
 // STATE
 // ───────────────────────────────────────────────────────────
-let mode     = 'now';
+let mode     = 'action';
 let loading     = false;
 let pendingFile = null; // { uri, name, mimeType } — set after PDF upload, cleared after send
 let moodNow  = '';   // good | neutral | low | ''
@@ -972,7 +971,7 @@ let sessionStart = new Date().toISOString();
 
 // Conversation history per mode: [{role, content, hidden?}]
 // Loaded from localStorage on boot, saved on every message + page close
-const convs = { now:[], think:[], build:[], reflect:[], world:[] };
+const convs = { action:[], reflect:[], world:[], money:[] };
 
 // Pomodoro
 let pomoSecs    = 25 * 60;
@@ -1125,6 +1124,9 @@ async function boot() {
   document.getElementById('api-screen').style.display = 'none';
   document.getElementById('app').classList.add('live');
 
+  // Load live FX rates for money mode (fire and forget)
+  loadFxRates();
+
   // Init people if not set
   if (!LS.get('ro_people')) LS.set('ro_people', defaultPeople());
 
@@ -1166,11 +1168,11 @@ async function boot() {
   // Start reminder loop if enabled
   if (LS.raw('ro_reminder_on') === '1') startReminderLoop();
 
-  // Render any existing Now conversation without re-greeting
+  // Render any existing Action conversation without re-greeting
   if (checkNeedsOnboarding()) {
     setTimeout(() => startOnboarding('full'), 600);
-  } else if (convs['now'].length > 0) {
-    convs['now'].filter(x => !x.hidden).forEach(x =>
+  } else if (convs['action'].length > 0) {
+    convs['action'].filter(x => !x.hidden).forEach(x =>
       addMsg(x.role === 'user' ? 'user' : 'ro', x.content)
     );
     await maybeDailyBrief();
@@ -1287,13 +1289,12 @@ function buildContext() {
 
 function modeContext() {
   const map = {
-    now:     'NOW MODE — fluid daily companion. Read the energy. No checklists. Just be present. One natural question that fits the moment.',
-    think:   'THINK MODE — strategic depth. Think in systems. Challenge assumptions. Map second and third order consequences. Always hold the 5-years-from-now lens.',
-    build:   'BUILD MODE — pure execution. One thing at a time. 25-minute windows. Always end with ONE concrete next action stated as one simple sentence. When energy is low: minimum viable day — one task only.',
-    reflect: 'REFLECT MODE — inner work. Gratitude practice. Manifestation. Emotional processing. Never rush. Always end with the gratitude ritual: "three things — big or small."',
-    world:   'WORLD MODE — people and relationships. You know all his key people by name and history. Nudge about anyone who hasn\'t been mentioned. Help him prepare for difficult conversations.'
+    action:  'ACTION MODE — execution and forward movement. Immediate tasks, building SettleMate, job search, daily priorities. One thing at a time. 25-minute Pomodoro windows available. Always end with ONE concrete next action as one simple sentence. When energy is low: minimum viable day — one task only. Hold the 5-years-from-now lens on every decision.',
+    reflect: 'REFLECT MODE — inner work and processing. This is where he thinks out loud, makes sense of patterns, processes emotions, and does his deepest thinking. Gratitude practice. Manifestation. Never rush. Give him space. Always end with the gratitude ritual: "three things — big or small."',
+    world:   'WORLD MODE — people and relationships. You know all his key people by name and history. Nudge about anyone who hasn\'t been mentioned recently. Help him prepare for difficult conversations. Ask about Sahar, Peretz, his parents naturally.',
+    money:   'MONEY MODE — full financial picture. Track every expense (EUR/ILS/USD — convert to EUR). Ask what he spent since last time. Log amounts, categories, sources. Know his debt, runway, and spending patterns. When he is ready, build a realistic recovery plan. Be precise — to the cent. No vagueness about money.'
   };
-  return map[mode] || map.now;
+  return map[mode] || map.action;
 }
 
 function buildSystem() {
@@ -1384,6 +1385,7 @@ ${(()=>{
   return `━━━ WEEKLY PSYCHOLOGICAL INSIGHT (${last.date}) ━━━\n${last.synthesis}\n\n`;
 })()}━━━ TODAY'S STATE ━━━
 ${lastState}
+${moneyContextForPrompt()}
 
 ━━━ CUSTOM RULES FROM NACHUM ━━━
 ${customRules}
@@ -1393,8 +1395,9 @@ ${customRules}
 • Never ask the same question twice
 • Maximum 3 things at once — ever
 • Say the real thing first. Acknowledge what matters, then one question, then strategy — only when he's ready
-• Always end Build mode with one concrete next action, one sentence
+• Always end Action mode with one concrete next action, one sentence
 • Always end Reflect mode with the gratitude practice
+• In Money mode: be precise to the cent. Extract amounts from what he says and confirm them back. Never round up vaguely.
 • Reference his people naturally when relevant
 • When he shares a slip: acknowledge it in one short line, then move forward. Don't dwell. Don't over-validate.
 • Design environments, not willpower
@@ -2071,7 +2074,7 @@ function switchMode(m, btn) {
   btn.classList.add('on');
 
   const pomo = document.getElementById('pomoBar');
-  m === 'build' ? pomo.classList.add('on') : pomo.classList.remove('on');
+  m === 'action' ? pomo.classList.add('on') : pomo.classList.remove('on');
 
   // Render stored messages for this mode
   const chat = document.getElementById('chat');
@@ -2083,14 +2086,124 @@ function switchMode(m, btn) {
 
 function modeGreeting(m) {
   const prompts = {
-    think:   'Transition to THINK mode. Acknowledge the shift briefly. Ask him what he wants to think through — one open question only.',
-    build:   'Transition to BUILD mode. Skip the preamble. Ask him: what is the one thing he wants to work on in the next 25 minutes? One question only.',
-    reflect:'Transition to REFLECT mode. Slow right down. One sentence to shift the atmosphere. Then ask: what\'s sitting with him right now? Nothing more.',
-    world:   'Transition to WORLD mode. Check in on his people. Notice who hasn\'t been mentioned recently. One natural question about his relationships.'
+    reflect: 'Transition to REFLECT mode. Slow right down. One sentence to shift the atmosphere. Then ask: what\'s sitting with him right now? Nothing more.',
+    world:   'Transition to WORLD mode. Check in on his people. Notice who hasn\'t been mentioned recently. One natural question about his relationships.',
+    money:   moneyModeGreeting()
   };
   if (prompts[m]) {
-    callRo([{ role: 'user', content: prompts[m] }], true);
+    if (m === 'money') {
+      addMsg('ro', prompts[m]);
+      convs['money'].push({ role: 'assistant', content: prompts[m] });
+      saveConvState();
+    } else {
+      callRo([{ role: 'user', content: prompts[m] }], true);
+    }
   }
+}
+
+function moneyModeGreeting() {
+  const log = LS.get('ro_money_log', []);
+  const meta = LS.get('ro_money_meta', {});
+  if (log.length === 0 && !meta.debt) {
+    return "Money mode. Let's build the full picture. Start simple — what did you spend today, or in the last few days? Amount, what it was for, and which currency.";
+  }
+  const last = log[log.length - 1];
+  const lastDate = last ? last.date : null;
+  const today = dateStr();
+  if (lastDate === today) {
+    const total = moneyTodayTotal();
+    return `Today so far: €${total.toFixed(2)}. Anything else to log, or want to see the full picture?`;
+  }
+  return `Last entry was ${lastDate || 'a while ago'}. What did you spend since then? Amount, what for, currency.`;
+}
+
+// ───────────────────────────────────────────────────────────
+// MONEY MODE
+// ───────────────────────────────────────────────────────────
+let fxRates = { EUR: 1, ILS: 0.25, USD: 0.92 }; // fallback rates
+
+async function loadFxRates() {
+  try {
+    const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=ILS,USD');
+    if (!res.ok) return;
+    const data = await res.json();
+    fxRates.ILS = 1 / data.rates.ILS;
+    fxRates.USD = 1 / data.rates.USD;
+  } catch { /* use fallback */ }
+}
+
+function toEUR(amount, currency) {
+  const rate = fxRates[currency.toUpperCase()] || 1;
+  return amount * rate;
+}
+
+function moneyTodayTotal() {
+  const log = LS.get('ro_money_log', []);
+  const today = dateStr();
+  return log.filter(e => e.date === today).reduce((s, e) => s + (e.amountEUR || 0), 0);
+}
+
+function logExpense(amount, currency, category, description, source) {
+  const log = LS.get('ro_money_log', []);
+  const amountEUR = toEUR(amount, currency);
+  log.push({
+    date: dateStr(),
+    ts: new Date().toISOString(),
+    amount,
+    currency: currency.toUpperCase(),
+    amountEUR,
+    category: category || 'other',
+    description: description || '',
+    source: source || ''
+  });
+  LS.set('ro_money_log', log);
+  return amountEUR;
+}
+
+function moneyContextForPrompt() {
+  const log = LS.get('ro_money_log', []);
+  const meta = LS.get('ro_money_meta', {});
+  if (!log.length && !meta.debt) return '';
+
+  const today = dateStr();
+
+  // Today
+  const todayTotal = log.filter(e => e.date === today).reduce((s, e) => s + (e.amountEUR || 0), 0);
+
+  // This month
+  const thisMonth = today.slice(0, 7);
+  const monthTotal = log.filter(e => e.date.startsWith(thisMonth)).reduce((s, e) => s + (e.amountEUR || 0), 0);
+
+  // All time
+  const allTotal = log.reduce((s, e) => s + (e.amountEUR || 0), 0);
+
+  // All-time category breakdown
+  const cats = {};
+  log.forEach(e => { cats[e.category] = (cats[e.category] || 0) + e.amountEUR; });
+  const catStr = Object.entries(cats).sort((a,b) => b[1]-a[1]).map(([k, v]) => `${k}: €${v.toFixed(0)}`).join(', ');
+
+  // Monthly totals history
+  const byMonth = {};
+  log.forEach(e => {
+    const m = e.date.slice(0, 7);
+    byMonth[m] = (byMonth[m] || 0) + e.amountEUR;
+  });
+  const monthHistory = Object.entries(byMonth).sort().map(([m, v]) => `${m}: €${v.toFixed(0)}`).join(', ');
+
+  const lines = [
+    `\n━━━ MONEY SNAPSHOT ━━━`,
+    meta.debt ? `Total debt: €${meta.debt}` : '',
+    meta.monthlyIncome ? `Expected monthly income: €${meta.monthlyIncome}` : '',
+    meta.monthlyFixed ? `Monthly fixed costs: €${meta.monthlyFixed}` : '',
+    `Today: €${todayTotal.toFixed(2)}`,
+    `This month (${thisMonth}): €${monthTotal.toFixed(2)}`,
+    `All-time total tracked: €${allTotal.toFixed(2)}`,
+    catStr ? `All-time by category: ${catStr}` : '',
+    monthHistory ? `Monthly history: ${monthHistory}` : '',
+    `Full log (${log.length} entries): ${JSON.stringify(log)}`
+  ].filter(Boolean);
+
+  return lines.join('\n');
 }
 
 // ───────────────────────────────────────────────────────────
