@@ -1008,7 +1008,7 @@ const KEYS = ['ro_checkins','ro_wins','ro_gratitude','ro_patterns','ro_struggles
 const GEMINI_MODELS = [
   'gemini-2.5-flash',
   'gemini-2.0-flash',
-  'gemini-1.5-flash'
+  'gemini-1.5-flash-latest'
 ];
 
 async function geminiCall(system, msgs, maxTok = 1024) {
@@ -1047,6 +1047,7 @@ async function geminiCall(system, msgs, maxTok = 1024) {
   }
 
   let lastError = null;
+  let quotaExhausted = 0;
   for (const model of GEMINI_MODELS) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     try {
@@ -1059,9 +1060,16 @@ async function geminiCall(system, msgs, maxTok = 1024) {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         const msg = errData.error?.message || `HTTP ${res.status}`;
-        // Only fallback on overload/server errors, not auth errors
+        // Auth errors — stop immediately
         if (res.status === 401 || res.status === 403) {
           throw new Error(msg);
+        }
+        // Quota exhausted — count it but keep trying other models
+        if (res.status === 429) {
+          quotaExhausted++;
+          console.warn(`${model} quota exhausted (429)`);
+          lastError = new Error('QUOTA_EXCEEDED');
+          continue;
         }
         console.warn(`${model} failed (${res.status}): ${msg} — trying next model`);
         lastError = new Error(msg);
@@ -1084,6 +1092,9 @@ async function geminiCall(system, msgs, maxTok = 1024) {
     }
   }
 
+  if (quotaExhausted === GEMINI_MODELS.length) {
+    throw new Error('Daily quota exceeded on all models. Resets at midnight Pacific time. Upgrade to a paid Google AI plan to remove limits.');
+  }
   throw lastError || new Error('All Gemini models failed');
 }
 
